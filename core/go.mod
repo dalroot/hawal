@@ -1,3 +1,3 @@
-module github.com/T4wroot/hawal/core
+module github.com/dalroot/hawal/core
 
 go 1.20

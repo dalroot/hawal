@@ -74,13 +74,13 @@
 روی سرور پنل اجرا کنید:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T4wroot/hawal/master/install-panel.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dalroot/hawal/master/install-panel.sh | bash
 ```
 
 پورت دلخواه:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T4wroot/hawal/master/install-panel.sh | bash -s -- --port 9090
+curl -fsSL https://raw.githubusercontent.com/dalroot/hawal/master/install-panel.sh | bash -s -- --port 9090
 ```
 
 پس از نصب، پنل در `http://IP-پنل:9090` در دسترس است.
@@ -148,7 +148,7 @@ ss -lntup
 ## Docker Compose
 
 ```bash
-git clone https://github.com/T4wroot/hawal.git
+git clone https://github.com/dalroot/hawal.git
 cd hawal
 docker compose up -d --build
 docker compose logs -f hawal-panel
@@ -167,6 +167,6 @@ docker compose logs -f hawal-panel
 
 Issue و Pull Request خوش‌آمد است. در گزارش باگ، نسخه، هسته، نقش نودها و لاگ پاک‌سازی‌شده از token را اضافه کنید.
 
-منتشرشده تحت [MIT License](LICENSE) © 2026 [T4wroot](https://github.com/T4wroot) و مشارکت‌کنندگان Hawal.
+منتشرشده تحت [MIT License](LICENSE) © 2026 [dalroot](https://github.com/dalroot) و مشارکت‌کنندگان Hawal.
 
 </div>

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/T4wroot/hawal/core/transport"
+	"github.com/dalroot/hawal/core/transport"
 )
 
 var BufferPool = sync.Pool{

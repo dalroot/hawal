@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/T4wroot/hawal/core/client"
-	"github.com/T4wroot/hawal/core/server"
+	"github.com/dalroot/hawal/core/client"
+	"github.com/dalroot/hawal/core/server"
 )
 
 type ConfigFile struct {

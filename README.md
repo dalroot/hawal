@@ -71,13 +71,13 @@ Protect a public panel with a firewall, VPN, or access-controlled reverse proxy.
 Run this on the server hosting the control panel:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T4wroot/hawal/master/install-panel.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dalroot/hawal/master/install-panel.sh | bash
 ```
 
 Use another panel port when needed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T4wroot/hawal/master/install-panel.sh | bash -s -- --port 9090
+curl -fsSL https://raw.githubusercontent.com/dalroot/hawal/master/install-panel.sh | bash -s -- --port 9090
 ```
 
 Then open `http://PANEL_IP:9090`.
@@ -145,7 +145,7 @@ For an offline node, check panel reachability, token, firewall rules, and `hawal
 ## Docker Compose
 
 ```bash
-git clone https://github.com/T4wroot/hawal.git
+git clone https://github.com/dalroot/hawal.git
 cd hawal
 docker compose up -d --build
 docker compose logs -f hawal-panel
@@ -166,4 +166,4 @@ Issues and pull requests are welcome. Good bug reports include the Hawal version
 
 ## License
 
-Released under the [MIT License](LICENSE) © 2026 [T4wroot](https://github.com/T4wroot) and Hawal contributors.
+Released under the [MIT License](LICENSE) © 2026 [dalroot](https://github.com/dalroot) and Hawal contributors.

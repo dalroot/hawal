@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/T4wroot/hawal/core/mux"
-	"github.com/T4wroot/hawal/core/transport"
+	"github.com/dalroot/hawal/core/mux"
+	"github.com/dalroot/hawal/core/transport"
 )
 
 type ServerConfig struct {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ⚡ Hawal Tunnel (هه‌واڵ) - One-Line Master Panel Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/T4wroot/hawal/master/install-panel.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/dalroot/hawal/master/install-panel.sh | bash
 
 set -e
 
@@ -30,7 +30,7 @@ fi
 # Clone or download repository
 echo "📥 Fetching Hawal Tunnel source..."
 rm -rf /tmp/hawal-temp
-curl -fsSL https://github.com/T4wroot/hawal/archive/refs/heads/master.tar.gz -o /tmp/hawal.tar.gz 2>/dev/null || curl -fsSL https://github.com/T4wroot/hawal/archive/refs/heads/main.tar.gz -o /tmp/hawal.tar.gz
+curl -fsSL https://github.com/dalroot/hawal/archive/refs/heads/master.tar.gz -o /tmp/hawal.tar.gz 2>/dev/null || curl -fsSL https://github.com/dalroot/hawal/archive/refs/heads/main.tar.gz -o /tmp/hawal.tar.gz
 mkdir -p /tmp/hawal-temp
 tar -xzf /tmp/hawal.tar.gz -C /tmp/hawal-temp --strip-components=1
 cp -r /tmp/hawal-temp/* "$INSTALL_DIR/"

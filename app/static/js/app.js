@@ -977,7 +977,7 @@ function updateInstallerCommand() {
   if (STATE.installerMode === 'native') {
     cmdBox.innerText = `curl -fsSL ${origin}/install.sh | bash -s -- --panel ${origin} --token ${STATE.currentInstallerToken}`;
   } else {
-    cmdBox.innerText = `docker run -d --name hawal-agent --restart=always --network=host -e PANEL_URL="${origin}" -e AGENT_TOKEN="${STATE.currentInstallerToken}" ghcr.io/t4wroot/hawal-agent:latest`;
+    cmdBox.innerText = `docker run -d --name hawal-agent --restart=always --network=host -e PANEL_URL="${origin}" -e AGENT_TOKEN="${STATE.currentInstallerToken}" ghcr.io/dalroot/hawal-agent:latest`;
   }
 }
 
