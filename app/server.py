@@ -830,19 +830,35 @@ class HTTPServer:
         script = f"""#!/usr/bin/env bash
 set -e
 
-echo "🚀 ==============================================="
-echo "⚡ Hawal Tunnel (هه‌واڵ) - Automated Node Installer"
-echo "🌐 Node Role: {role.upper()} | Panel: {panel_url}"
-echo "==============================================="
-
 TOKEN="{token}"
 PANEL_URL="{panel_url}"
 ROLE="{role}"
 NAME="{name}"
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --token) TOKEN="$2"; shift 2 ;;
+    --panel) PANEL_URL="$2"; shift 2 ;;
+    --role) ROLE="$2"; shift 2 ;;
+    --name) NAME="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
 if [ -z "$TOKEN" ]; then
   echo "❌ Error: Node token is missing."
+  echo "Usage: curl -fsSL ... | bash -s -- --panel <URL> --token <TOKEN>"
   exit 1
+fi
+
+echo "🚀 ==============================================="
+echo "⚡ Hawal Tunnel (هه‌واڵ) - Automated Node Installer"
+echo "🌐 Node Role: ${{ROLE^^}} | Panel: ${{PANEL_URL}}"
+echo "==============================================="
+
+if ! command -v python3 &> /dev/null; then
+  echo "📦 Installing Python3..."
+  apt-get update -y && apt-get install -y python3 curl tar || true
 fi
 
 mkdir -p /opt/hawal /etc/hawal
