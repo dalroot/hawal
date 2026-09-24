@@ -313,7 +313,7 @@ class HTTPServer:
             return
 
         # 3. One-Line Node Installer Script (Public)
-        if method == "GET" and path == "/install":
+        if method == "GET" and path in ["/install", "/install.sh"]:
             await self.serve_node_installer(query, headers, writer)
             return
 

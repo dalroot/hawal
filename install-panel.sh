@@ -60,7 +60,17 @@ systemctl daemon-reload
 systemctl enable hawal-panel
 systemctl restart hawal-panel
 
-SERVER_IP=$(curl -s -4 --connect-timeout 3 ifconfig.me || curl -s -4 --connect-timeout 3 api.ipify.org || hostname -I | awk '{print $1}')
+SERVER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7}' || true)
+if [[ -z "$SERVER_IP" ]]; then
+  SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+fi
+if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" =~ ^10\. ]] || [[ "$SERVER_IP" =~ ^192\.168\. ]] || [[ "$SERVER_IP" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]]; then
+  CANDIDATE_IP=$(curl -s -4 --connect-timeout 2 https://icanhazip.com 2>/dev/null || curl -s -4 --connect-timeout 2 https://api.ipify.org 2>/dev/null || true)
+  if echo "$CANDIDATE_IP" | grep -E -q '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+    SERVER_IP="$CANDIDATE_IP"
+  fi
+fi
+SERVER_IP="${SERVER_IP:-YOUR_SERVER_IP}"
 
 echo "==============================================="
 echo "🎉 Hawal Tunnel Panel successfully installed & running!"
