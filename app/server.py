@@ -21,6 +21,20 @@ from app.db import (
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
 from app.gost_engine import generate_gost_server_command, generate_gost_client_command
 from app.ping_tool import run_ping, run_tcp_ping
+from app.auth import (
+    is_first_time_setup, setup_admin, authenticate,
+    validate_session, invalidate_session
+)
+
+def get_session_token_from_headers(headers):
+    cookie_header = headers.get("cookie", "")
+    if not cookie_header:
+        return ""
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if part.startswith("hawal_session="):
+            return part.split("=", 1)[1].strip()
+    return ""
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -192,6 +206,12 @@ class HTTPServer:
             # Check WebSocket Upgrade
             if headers.get("upgrade", "").lower() == "websocket":
                 sec_key = headers.get("sec-websocket-key")
+                session_token = get_session_token_from_headers(headers)
+                query_token = query.get("token", [""])[0]
+                if not (validate_session(session_token) or validate_session(query_token) or query_token == MASTER_TOKEN):
+                    writer.write(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    writer.close()
+                    return
                 if sec_key:
                     writer.write(make_ws_handshake_response(sec_key))
                     await writer.drain()
@@ -226,20 +246,91 @@ class HTTPServer:
                 pass
 
     async def route_request(self, method, path, query, headers, body, writer):
-        # 1. Static Files & Dashboard UI
-        if method == "GET" and path in ["/", "/index.html"]:
-            self.serve_template("index.html", writer)
+        session_token = get_session_token_from_headers(headers)
+        is_authenticated = validate_session(session_token)
+
+        # 0. Auth API Endpoints
+        if method == "GET" and path == "/api/auth/status":
+            self.send_json(writer, {
+                "is_first_time": is_first_time_setup(),
+                "authenticated": is_authenticated
+            })
             return
 
+        if method == "POST" and path == "/api/auth/setup":
+            try:
+                data = json.loads(body.decode('utf-8'))
+                username = data.get("username", "")
+                password = data.get("password", "")
+                ok, token, err = setup_admin(username, password)
+                if not ok:
+                    self.send_json(writer, {"error": err}, status=400)
+                    return
+                cookie = f"hawal_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"
+                self.send_json(writer, {"success": True}, set_cookie=cookie)
+            except Exception as e:
+                self.send_json(writer, {"error": str(e)}, status=500)
+            return
+
+        if method == "POST" and path == "/api/auth/login":
+            try:
+                data = json.loads(body.decode('utf-8'))
+                username = data.get("username", "")
+                password = data.get("password", "")
+                ok, token, err = authenticate(username, password)
+                if not ok:
+                    self.send_json(writer, {"error": err}, status=401)
+                    return
+                cookie = f"hawal_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"
+                self.send_json(writer, {"success": True}, set_cookie=cookie)
+            except Exception as e:
+                self.send_json(writer, {"error": str(e)}, status=500)
+            return
+
+        if (method == "POST" and path == "/api/auth/logout") or (method == "GET" and path == "/logout"):
+            if session_token:
+                invalidate_session(session_token)
+            clear_cookie = "hawal_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+            if method == "GET":
+                self.send_redirect(writer, "/login", set_cookie=clear_cookie)
+            else:
+                self.send_json(writer, {"success": True}, set_cookie=clear_cookie)
+            return
+
+        # 1. Login Page UI
+        if method == "GET" and path == "/login":
+            if is_authenticated:
+                self.send_redirect(writer, "/")
+                return
+            self.serve_template("login.html", writer)
+            return
+
+        # 2. Static Files (Public)
         if method == "GET" and path.startswith("/static/"):
             rel_path = path.replace("/static/", "", 1)
             file_path = os.path.join(STATIC_DIR, rel_path)
             self.serve_static_file(file_path, writer)
             return
 
-        # 2. One-Line Node Installer Script
+        # 3. One-Line Node Installer Script (Public)
         if method == "GET" and path == "/install":
             await self.serve_node_installer(query, headers, writer)
+            return
+
+        # 4. Agent endpoints (Authenticated via node bearer token)
+        if path.startswith("/api/agent/"):
+            pass
+        elif path.startswith("/api/"):
+            if not is_authenticated:
+                self.send_json(writer, {"error": "Unauthorized. Please log in."}, status=401)
+                return
+
+        # 5. Dashboard UI (Protected)
+        if method == "GET" and path in ["/", "/index.html"]:
+            if not is_authenticated:
+                self.send_redirect(writer, "/login")
+                return
+            self.serve_template("index.html", writer)
             return
 
         # 3. REST API: Node Management
@@ -848,16 +939,29 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         )
         writer.write(resp_headers.encode('utf-8') + content)
 
-    def send_json(self, writer, data, status=200):
+    def send_redirect(self, writer, location, set_cookie=None):
+        headers = [
+            "HTTP/1.1 302 Found",
+            f"Location: {location}",
+            "Content-Length: 0"
+        ]
+        if set_cookie:
+            headers.append(f"Set-Cookie: {set_cookie}")
+        headers.append("Connection: close\r\n\r\n")
+        writer.write("\r\n".join(headers).encode('utf-8'))
+
+    def send_json(self, writer, data, status=200, set_cookie=None):
         body = json.dumps(data).encode('utf-8')
-        status_text = "OK" if status == 200 else ("Not Found" if status == 404 else "Error")
-        headers = (
-            f"HTTP/1.1 {status} {status_text}\r\n"
-            "Content-Type: application/json; charset=utf-8\r\n"
-            f"Content-Length: {len(body)}\r\n"
-            "Access-Control-Allow-Origin: *\r\n"
-            "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\r\n"
-            "Access-Control-Allow-Headers: Content-Type, X-Node-Token\r\n"
-            "Connection: close\r\n\r\n"
-        )
-        writer.write(headers.encode('utf-8') + body)
+        status_text = "OK" if status == 200 else ("Not Found" if status == 404 else ("Unauthorized" if status == 401 else "Error"))
+        headers = [
+            f"HTTP/1.1 {status} {status_text}",
+            "Content-Type: application/json; charset=utf-8",
+            f"Content-Length: {len(body)}",
+            "Access-Control-Allow-Origin: *",
+            "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers: Content-Type, Authorization, X-Node-Token",
+        ]
+        if set_cookie:
+            headers.append(f"Set-Cookie: {set_cookie}")
+        headers.append("Connection: close\r\n\r\n")
+        writer.write("\r\n".join(headers).encode('utf-8') + body)

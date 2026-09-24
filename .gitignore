@@ -8,6 +8,7 @@ venv/
 .venv/
 *.db
 *.secret
+.env
 *.log
 .hawal/
 .nexustunnel/
