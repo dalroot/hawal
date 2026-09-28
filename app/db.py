@@ -110,6 +110,29 @@ def init_db():
             cursor.execute("ALTER TABLE nodes ADD COLUMN city TEXT DEFAULT ''")
         except:
             pass
+
+        # Traffic samples time-series table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_type TEXT NOT NULL, -- 'node' or 'tunnel'
+            target_id TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            bytes_in INTEGER NOT NULL DEFAULT 0,
+            bytes_out INTEGER NOT NULL DEFAULT 0,
+            rate_in_mbps REAL NOT NULL DEFAULT 0,
+            rate_out_mbps REAL NOT NULL DEFAULT 0
+        )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_traffic_target_ts ON traffic_samples(target_type, target_id, timestamp)")
+
+        try:
+            cursor.execute("ALTER TABLE nodes ADD COLUMN net_rx_bytes INTEGER DEFAULT 0")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN net_tx_bytes INTEGER DEFAULT 0")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN rate_in_mbps REAL DEFAULT 0")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN rate_out_mbps REAL DEFAULT 0")
+        except:
+            pass
         
         conn.commit()
 
@@ -156,37 +179,38 @@ def save_node(node_id, name, ip, role, token, country_code="GLOBAL", country_nam
         """, (node_id, name, ip, role, country_code, country_name, flag, city, token, now, now))
         conn.commit()
 
-def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country_code=None, country_name=None, flag=None, city=None):
+def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country_code=None, country_name=None, flag=None, city=None, net_rx_bytes=None, net_tx_bytes=None, rate_in_mbps=None, rate_out_mbps=None):
     now = time.time()
     with get_db() as conn:
+        updates = [
+            ("ip", ip),
+            ("cpu_percent", cpu),
+            ("ram_used_mb", ram_used),
+            ("ram_total_mb", ram_total),
+            ("uptime_seconds", uptime),
+            ("last_seen", now),
+            ("status", 'online')
+        ]
         if country_code and country_name:
-            conn.execute("""
-            UPDATE nodes SET
-                ip = ?,
-                cpu_percent = ?,
-                ram_used_mb = ?,
-                ram_total_mb = ?,
-                uptime_seconds = ?,
-                country_code = ?,
-                country_name = ?,
-                flag = ?,
-                city = ?,
-                last_seen = ?,
-                status = 'online'
-            WHERE id = ?
-            """, (ip, cpu, ram_used, ram_total, uptime, country_code, country_name, flag, city, now, node_id))
-        else:
-            conn.execute("""
-            UPDATE nodes SET
-                ip = ?,
-                cpu_percent = ?,
-                ram_used_mb = ?,
-                ram_total_mb = ?,
-                uptime_seconds = ?,
-                last_seen = ?,
-                status = 'online'
-            WHERE id = ?
-            """, (ip, cpu, ram_used, ram_total, uptime, now, node_id))
+            updates.extend([
+                ("country_code", country_code),
+                ("country_name", country_name),
+                ("flag", flag or '🌐'),
+                ("city", city or '')
+            ])
+        if net_rx_bytes is not None:
+            updates.append(("net_rx_bytes", int(net_rx_bytes)))
+        if net_tx_bytes is not None:
+            updates.append(("net_tx_bytes", int(net_tx_bytes)))
+        if rate_in_mbps is not None:
+            updates.append(("rate_in_mbps", round(float(rate_in_mbps), 2)))
+        if rate_out_mbps is not None:
+            updates.append(("rate_out_mbps", round(float(rate_out_mbps), 2)))
+
+        set_clause = ", ".join([f"{col} = ?" for col, _ in updates])
+        params = [val for _, val in updates]
+        params.append(node_id)
+        conn.execute(f"UPDATE nodes SET {set_clause} WHERE id = ?", params)
         conn.commit()
 
 def delete_node(node_id):
@@ -377,3 +401,116 @@ def get_latest_pings():
         ORDER BY ph.created_at DESC LIMIT 20
         """).fetchall()
         return [dict(r) for r in rows]
+
+# --- Time-Series Traffic Operations ---
+def record_traffic_sample(target_type, target_id, bytes_in, bytes_out, rate_in_mbps=0.0, rate_out_mbps=0.0, timestamp=None):
+    if timestamp is None:
+        timestamp = int(time.time())
+    with get_db() as conn:
+        conn.execute("""
+        INSERT INTO traffic_samples (target_type, target_id, timestamp, bytes_in, bytes_out, rate_in_mbps, rate_out_mbps)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (target_type, target_id, int(timestamp), int(bytes_in), int(bytes_out), round(float(rate_in_mbps), 2), round(float(rate_out_mbps), 2)))
+        conn.commit()
+
+def clean_old_traffic_samples(retention_days=35):
+    cutoff = int(time.time()) - (retention_days * 86400)
+    with get_db() as conn:
+        conn.execute("DELETE FROM traffic_samples WHERE timestamp < ?", (cutoff,))
+        conn.commit()
+
+def get_traffic_history(target_type="all", target_id=None, time_range="24h"):
+    now = int(time.time())
+    range_config = {
+        "1h":  {"duration": 3600,        "bucket": 60},      # 60 points (1m)
+        "12h": {"duration": 12 * 3600,   "bucket": 300},     # 144 points (5m)
+        "24h": {"duration": 24 * 3600,   "bucket": 300},     # 288 points (5m)
+        "7d":  {"duration": 7 * 86400,   "bucket": 1800},    # 336 points (30m)
+        "30d": {"duration": 30 * 86400,  "bucket": 7200}     # 360 points (2h)
+    }
+    cfg = range_config.get(time_range, range_config["24h"])
+    duration = cfg["duration"]
+    bucket_size = cfg["bucket"]
+    start_time = now - duration
+
+    where_clauses = ["timestamp >= ?"]
+    params = [start_time]
+
+    if target_type in ("node", "tunnel"):
+        where_clauses.append("target_type = ?")
+        params.append(target_type)
+        if target_id and target_id != "all":
+            where_clauses.append("target_id = ?")
+            params.append(target_id)
+    elif target_type == "all":
+        # Default aggregate is node level (complete server footprint)
+        where_clauses.append("target_type = 'node'")
+
+    where_sql = " AND ".join(where_clauses)
+
+    query = f"""
+    SELECT
+        (timestamp / {bucket_size}) * {bucket_size} AS bucket_ts,
+        SUM(bytes_in) AS total_in,
+        SUM(bytes_out) AS total_out,
+        ROUND(AVG(rate_in_mbps), 2) AS avg_rate_in,
+        ROUND(AVG(rate_out_mbps), 2) AS avg_rate_out,
+        ROUND(MAX(rate_in_mbps), 2) AS peak_rate_in,
+        ROUND(MAX(rate_out_mbps), 2) AS peak_rate_out
+    FROM traffic_samples
+    WHERE {where_sql}
+    GROUP BY bucket_ts
+    ORDER BY bucket_ts ASC
+    """
+
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    points = []
+    total_bytes_in = 0
+    total_bytes_out = 0
+    peak_in = 0.0
+    peak_out = 0.0
+    latest_in = 0.0
+    latest_out = 0.0
+
+    for r in rows:
+        d = dict(r)
+        b_ts = d["bucket_ts"]
+        b_in = d["total_in"] or 0
+        b_out = d["total_out"] or 0
+        r_in = d["avg_rate_in"] or 0.0
+        r_out = d["avg_rate_out"] or 0.0
+        p_in = d["peak_rate_in"] or 0.0
+        p_out = d["peak_rate_out"] or 0.0
+
+        total_bytes_in += b_in
+        total_bytes_out += b_out
+        if p_in > peak_in: peak_in = p_in
+        if p_out > peak_out: peak_out = p_out
+        latest_in = r_in
+        latest_out = r_out
+
+        points.append({
+            "timestamp": b_ts,
+            "bytes_in": b_in,
+            "bytes_out": b_out,
+            "rate_in_mbps": r_in,
+            "rate_out_mbps": r_out
+        })
+
+    return {
+        "range": time_range,
+        "target_type": target_type,
+        "target_id": target_id or "all",
+        "summary": {
+            "total_bytes_in": total_bytes_in,
+            "total_bytes_out": total_bytes_out,
+            "peak_rate_in_mbps": peak_in,
+            "peak_rate_out_mbps": peak_out,
+            "current_rate_in_mbps": latest_in,
+            "current_rate_out_mbps": latest_out
+        },
+        "points": points
+    }
+

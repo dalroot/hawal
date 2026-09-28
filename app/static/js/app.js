@@ -11,7 +11,11 @@ let STATE = {
   activePortTags: [443, 2083],
   editPortTags: [],
   ws: null,
-  tunnelTestResults: {}
+  tunnelTestResults: {},
+  bandwidthRange: '24h',
+  bandwidthTarget: 'all:all',
+  bandwidthData: null,
+  bandwidthAutoTimer: null
 };
 
 // UI UX Pro Max: Toast Notification System
@@ -248,6 +252,10 @@ function switchTab(tabId) {
       <span style="color: var(--cf-text-primary); font-weight: 700;">${titles[tabId] || 'نمای کلی'}</span>
     `;
   }
+
+  if (tabId === 'dashboard') {
+    setTimeout(loadBandwidthMetrics, 50);
+  }
 }
 
 // -------------------------------------------------------------
@@ -327,6 +335,9 @@ function renderDashboard() {
   renderCloudflareNodesColumn();
   renderCloudflareAnalyticsColumn(totalIn, totalOut);
   renderTopology();
+  populateTrafficTargetOptions();
+  loadBandwidthMetrics();
+  initBandwidthAutoRefresh();
 }
 
 function renderCloudflareTunnelsColumn() {
@@ -437,6 +448,289 @@ function renderCloudflareAnalyticsColumn(totalIn, totalOut) {
       <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
     </div>
   `;
+}
+
+// -------------------------------------------------------------
+// Bandwidth & Traffic Analytics Suite
+// -------------------------------------------------------------
+function populateTrafficTargetOptions() {
+  const sel = document.getElementById('traffic-target-select');
+  if (!sel) return;
+
+  const currentVal = sel.value || STATE.bandwidthTarget || 'all:all';
+  const options = [{ value: 'all:all', label: '🌐 کل ترافیک شبکه (All Traffic)' }];
+
+  STATE.nodes.forEach(n => {
+    const flag = n.flag || '🌐';
+    const roleLabel = n.role === 'iran' ? 'ایران' : 'خارج';
+    options.push({
+      value: `node:${n.id}`,
+      label: `🖥️ ${flag} نود ${n.name} (${roleLabel})`
+    });
+  });
+
+  STATE.tunnels.forEach(t => {
+    options.push({
+      value: `tunnel:${t.id}`,
+      label: `⚡ تانل ${t.name} (پورت ${t.core_port})`
+    });
+  });
+
+  sel.innerHTML = options.map(opt => `<option value="${opt.value}" ${opt.value === currentVal ? 'selected' : ''}>${opt.label}</option>`).join('');
+}
+
+function changeBandwidthRange(range) {
+  STATE.bandwidthRange = range;
+  const container = document.getElementById('traffic-range-buttons');
+  if (container) {
+    container.querySelectorAll('.btn-range').forEach(btn => {
+      if (btn.dataset.range === range) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+
+  const rangeLabels = {
+    '1h': 'بازهٔ زمانی: ۱ ساعت گذشته',
+    '12h': 'بازهٔ زمانی: ۱۲ ساعت گذشته',
+    '24h': 'بازهٔ زمانی: ۲۴ ساعت گذشته',
+    '7d': 'بازهٔ زمانی: ۷ روز گذشته (۱ هفته)',
+    '30d': 'بازهٔ زمانی: ۳۰ روز گذشته (۱ ماه)'
+  };
+  const labelEl = document.getElementById('chart-time-range-display');
+  if (labelEl) labelEl.innerText = rangeLabels[range] || `بازهٔ زمانی: ${range}`;
+
+  loadBandwidthMetrics();
+}
+
+async function loadBandwidthMetrics() {
+  const sel = document.getElementById('traffic-target-select');
+  const targetVal = sel ? sel.value : (STATE.bandwidthTarget || 'all:all');
+  STATE.bandwidthTarget = targetVal;
+
+  const parts = targetVal.split(':');
+  const targetType = parts[0] || 'all';
+  const targetId = parts[1] || 'all';
+  const range = STATE.bandwidthRange || '24h';
+
+  try {
+    const res = await fetch(`/api/metrics/bandwidth?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetId)}&range=${encodeURIComponent(range)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    STATE.bandwidthData = data;
+
+    const summ = data.summary || {};
+    const currIn = document.getElementById('stat-curr-rate-in');
+    const currOut = document.getElementById('stat-curr-rate-out');
+    const totIn = document.getElementById('stat-total-in');
+    const totOut = document.getElementById('stat-total-out');
+    const peakEl = document.getElementById('stat-peak-rate');
+
+    if (currIn) currIn.innerText = `${(summ.current_rate_in_mbps || 0).toFixed(2)} Mbps`;
+    if (currOut) currOut.innerText = `${(summ.current_rate_out_mbps || 0).toFixed(2)} Mbps`;
+    if (totIn) totIn.innerText = formatBytes(summ.total_bytes_in || 0);
+    if (totOut) totOut.innerText = formatBytes(summ.total_bytes_out || 0);
+    if (peakEl) {
+      const peakVal = Math.max(summ.peak_rate_in_mbps || 0, summ.peak_rate_out_mbps || 0);
+      peakEl.innerText = `${peakVal.toFixed(2)} Mbps`;
+    }
+
+    renderBandwidthChart(data);
+  } catch (e) {
+    console.error("Failed to load bandwidth metrics:", e);
+  }
+}
+
+function renderBandwidthChart(data) {
+  const canvas = document.getElementById('bandwidthCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const points = data.points || [];
+  if (points.length === 0) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '13px Vazirmatn, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('در حال جمع‌آوری اولین نمونه‌های ترافیکی... داده‌ها به‌زودی نمایش داده می‌شوند.', w / 2, h / 2);
+    return;
+  }
+
+  const padLeft = 55;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 35;
+
+  const chartW = w - padLeft - padRight;
+  const chartH = h - padTop - padBottom;
+
+  let maxRate = 0.5;
+  points.forEach(p => {
+    if (p.rate_in_mbps > maxRate) maxRate = p.rate_in_mbps;
+    if (p.rate_out_mbps > maxRate) maxRate = p.rate_out_mbps;
+  });
+  maxRate = maxRate * 1.18;
+
+  // Grid Lines & Y Axis Labels
+  const gridLines = 4;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'right';
+
+  for (let i = 0; i <= gridLines; i++) {
+    const yVal = (maxRate / gridLines) * i;
+    const y = padTop + chartH - (i / gridLines) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(w - padRight, y);
+    ctx.stroke();
+
+    ctx.fillText(`${yVal.toFixed(1)}M`, padLeft - 8, y + 3);
+  }
+
+  const coordsIn = [];
+  const coordsOut = [];
+  const count = points.length;
+
+  points.forEach((p, idx) => {
+    const x = count === 1 ? padLeft + chartW / 2 : padLeft + (idx / (count - 1)) * chartW;
+    const yIn = padTop + chartH - (Math.min(p.rate_in_mbps, maxRate) / maxRate) * chartH;
+    const yOut = padTop + chartH - (Math.min(p.rate_out_mbps, maxRate) / maxRate) * chartH;
+    coordsIn.push({ x, y: yIn, pt: p });
+    coordsOut.push({ x, y: yOut, pt: p });
+  });
+
+  function drawSeries(coords, lineColor, fillColor) {
+    if (coords.length === 0) return;
+
+    const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
+    grad.addColorStop(0, fillColor);
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.beginPath();
+    ctx.moveTo(coords[0].x, padTop + chartH);
+    coords.forEach(c => ctx.lineTo(c.x, c.y));
+    ctx.lineTo(coords[coords.length - 1].x, padTop + chartH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    coords.forEach((c, i) => {
+      if (i === 0) ctx.moveTo(c.x, c.y);
+      else ctx.lineTo(c.x, c.y);
+    });
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  drawSeries(coordsOut, '#f59e0b', 'rgba(245, 158, 11, 0.22)');
+  drawSeries(coordsIn, '#10b981', 'rgba(16, 185, 129, 0.25)');
+
+  // X Axis Timestamps
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  const labelStep = Math.max(1, Math.floor(count / 5));
+
+  for (let i = 0; i < count; i += labelStep) {
+    const pt = points[i];
+    const d = new Date(pt.timestamp * 1000);
+    let timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (data.range === '7d' || data.range === '30d') {
+      timeStr = `${d.getMonth() + 1}/${d.getDate()} ${timeStr}`;
+    }
+    const x = count === 1 ? padLeft + chartW / 2 : padLeft + (i / (count - 1)) * chartW;
+    ctx.fillText(timeStr, x, h - 10);
+  }
+
+  setupChartHover(canvas, coordsIn, coordsOut, chartW, chartH, padLeft, padTop);
+}
+
+function setupChartHover(canvas, coordsIn, coordsOut, chartW, chartH, padLeft, padTop) {
+  const tooltip = document.getElementById('chartTooltip');
+  if (!tooltip) return;
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (mouseX < padLeft || mouseX > rect.width - 20) {
+      tooltip.style.display = 'none';
+      return;
+    }
+
+    let nearestIdx = 0;
+    let minDiff = Infinity;
+    coordsIn.forEach((c, idx) => {
+      const diff = Math.abs(c.x - mouseX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearestIdx = idx;
+      }
+    });
+
+    const ptIn = coordsIn[nearestIdx];
+    const ptOut = coordsOut[nearestIdx];
+    if (!ptIn) return;
+
+    const d = new Date(ptIn.pt.timestamp * 1000);
+    const dateStr = d.toLocaleDateString('fa-IR');
+    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+    tooltip.innerHTML = `
+      <div style="font-weight: 700; color: #94a3b8; margin-bottom: 4px; border-bottom: 1px solid #334155; padding-bottom: 3px;">
+        🕒 ${timeStr} • ${dateStr}
+      </div>
+      <div style="color: #10b981; margin-bottom: 2px;">
+        ▼ دانلود: <b>${ptIn.pt.rate_in_mbps.toFixed(2)} Mbps</b> <span style="color: #94a3b8; font-size: 10px;">(${formatBytes(ptIn.pt.bytes_in)})</span>
+      </div>
+      <div style="color: #f59e0b;">
+        ▲ آپلود: <b>${ptOut.pt.rate_out_mbps.toFixed(2)} Mbps</b> <span style="color: #94a3b8; font-size: 10px;">(${formatBytes(ptOut.pt.bytes_out)})</span>
+      </div>
+    `;
+
+    tooltip.style.display = 'block';
+    let tipLeft = mouseX + 15;
+    if (tipLeft + 200 > rect.width) tipLeft = mouseX - 205;
+    tooltip.style.left = `${tipLeft}px`;
+    tooltip.style.top = `${Math.max(10, mouseY - 40)}px`;
+  };
+
+  canvas.onmouseleave = () => {
+    tooltip.style.display = 'none';
+  };
+}
+
+function initBandwidthAutoRefresh() {
+  if (!STATE.bandwidthAutoTimer) {
+    STATE.bandwidthAutoTimer = setInterval(() => {
+      if (STATE.activeTab === 'dashboard') {
+        loadBandwidthMetrics();
+      }
+    }, 10000);
+
+    window.addEventListener('resize', () => {
+      if (STATE.bandwidthData && STATE.activeTab === 'dashboard') {
+        renderBandwidthChart(STATE.bandwidthData);
+      }
+    });
+  }
 }
 
 function renderTopology() {

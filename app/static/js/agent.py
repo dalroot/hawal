@@ -98,6 +98,25 @@ class HawalAgent:
         except:
             pass
 
+        try:
+            rx_total = 0
+            tx_total = 0
+            with open("/proc/net/dev", "r") as f:
+                for line in f:
+                    if ":" in line:
+                        parts = line.split(":")
+                        iface = parts[0].strip()
+                        if iface == "lo" or iface.startswith("tun") or iface.startswith("docker"):
+                            continue
+                        stats = parts[1].split()
+                        if len(stats) >= 9:
+                            rx_total += int(stats[0])
+                            tx_total += int(stats[8])
+            metrics["net_rx_bytes"] = rx_total
+            metrics["net_tx_bytes"] = tx_total
+        except:
+            pass
+
         return metrics
 
     def ensure_hawal_core_binary(self):
@@ -560,16 +579,80 @@ class HawalAgent:
             self.cleanup_paqet_iptables(metadata.get("role"), metadata.get("core_port"), metadata.get("ports"))
         self.running_metadata.pop(tun_id, None)
 
+    def _ensure_acct_chains(self):
+        try:
+            subprocess.run(["iptables", "-N", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["iptables", "-N", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if subprocess.run(["iptables", "-C", "INPUT", "-j", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                subprocess.run(["iptables", "-I", "INPUT", "1", "-j", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if subprocess.run(["iptables", "-C", "OUTPUT", "-j", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                subprocess.run(["iptables", "-I", "OUTPUT", "1", "-j", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+    def _sync_acct_rules(self, ports):
+        if not ports:
+            return
+        self._ensure_acct_chains()
+        for p in ports:
+            p_str = str(p)
+            for proto in ("tcp", "udp"):
+                if subprocess.run(["iptables", "-C", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                    subprocess.run(["iptables", "-A", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if subprocess.run(["iptables", "-C", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                    subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def _read_acct_counters(self):
+        bytes_in = {}
+        bytes_out = {}
+        try:
+            res_in = subprocess.run(["iptables", "-nxvL", "HAWAL_ACCT_IN"], capture_output=True, text=True, timeout=2)
+            if res_in.returncode == 0:
+                for line in res_in.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        m = re.search(r'dpt:(\d+)', line)
+                        if m:
+                            p = int(m.group(1))
+                            bytes_in[p] = bytes_in.get(p, 0) + int(parts[1])
+        except Exception:
+            pass
+
+        try:
+            res_out = subprocess.run(["iptables", "-nxvL", "HAWAL_ACCT_OUT"], capture_output=True, text=True, timeout=2)
+            if res_out.returncode == 0:
+                for line in res_out.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        m = re.search(r'spt:(\d+)', line)
+                        if m:
+                            p = int(m.group(1))
+                            bytes_out[p] = bytes_out.get(p, 0) + int(parts[1])
+        except Exception:
+            pass
+
+        return bytes_in, bytes_out
+
     def track_and_report_traffic(self):
         reports = []
+        all_active_ports = set()
         for tun_id, proc in list(self.running_processes.items()):
             if proc.poll() is None:
                 metadata = self.running_metadata.get(tun_id, {})
-                # Paqet passes packets through pcap/raw sockets, so /proc/PID/io
-                # measures process file I/O rather than transferred traffic. Its
-                # server port is dedicated to a tunnel, which gives us exact
-                # wire-level byte counters in the raw iptables chains. Report from
-                # the server only to avoid counting the same tunnel twice.
+                if metadata.get("core_type") != "paqet" and metadata.get("role") != "server":
+                    for p in self._extract_ports(metadata):
+                        all_active_ports.add(p)
+
+        if all_active_ports:
+            self._sync_acct_rules(all_active_ports)
+            ports_in, ports_out = self._read_acct_counters()
+        else:
+            ports_in, ports_out = {}, {}
+
+        for tun_id, proc in list(self.running_processes.items()):
+            if proc.poll() is None:
+                metadata = self.running_metadata.get(tun_id, {})
+                # Paqet dedicated raw socket counters
                 if metadata.get("core_type") == "paqet":
                     if metadata.get("role") != "server":
                         continue
@@ -590,35 +673,29 @@ class HawalAgent:
                     except Exception:
                         pass
                     continue
-                pid = proc.pid
-                io_path = f"/proc/{pid}/io"
-                try:
-                    if os.path.exists(io_path):
-                        with open(io_path, "r") as f:
-                            lines = f.readlines()
-                        r_bytes = 0
-                        w_bytes = 0
-                        for l in lines:
-                            if l.startswith("read_bytes:"):
-                                r_bytes = int(l.split(":")[1].strip())
-                            elif l.startswith("write_bytes:"):
-                                w_bytes = int(l.split(":")[1].strip())
-                            elif l.startswith("rchar:") and r_bytes == 0:
-                                r_bytes = int(l.split(":")[1].strip())
-                            elif l.startswith("wchar:") and w_bytes == 0:
-                                w_bytes = int(l.split(":")[1].strip())
-                        
-                        last_r, last_w = getattr(self, "_last_io", {}).get(tun_id, (r_bytes, w_bytes))
-                        if not hasattr(self, "_last_io"):
-                            self._last_io = {}
-                        self._last_io[tun_id] = (r_bytes, w_bytes)
 
-                        delta_in = max(0, r_bytes - last_r)
-                        delta_out = max(0, w_bytes - last_w)
-                        if delta_in > 0 or delta_out > 0:
-                            reports.append({"tunnel_id": tun_id, "bytes_in": delta_in, "bytes_out": delta_out})
-                except Exception:
-                    pass
+                # Kernel iptables accounting for GOST, Hawal Stealth, Backhaul
+                if metadata.get("role") == "server":
+                    continue
+
+                tun_ports = self._extract_ports(metadata)
+                if not tun_ports:
+                    continue
+
+                cur_in = sum(ports_in.get(p, 0) for p in tun_ports)
+                cur_out = sum(ports_out.get(p, 0) for p in tun_ports)
+
+                if not hasattr(self, "_last_tunnel_acct"):
+                    self._last_tunnel_acct = {}
+
+                last_in, last_out = self._last_tunnel_acct.get(tun_id, (cur_in, cur_out))
+                self._last_tunnel_acct[tun_id] = (cur_in, cur_out)
+
+                delta_in = max(0, cur_in - last_in)
+                delta_out = max(0, cur_out - last_out)
+
+                if delta_in > 0 or delta_out > 0:
+                    reports.append({"tunnel_id": tun_id, "bytes_in": delta_in, "bytes_out": delta_out})
 
         if reports:
             try:

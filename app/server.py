@@ -16,7 +16,8 @@ from app.db import (
     set_tunnel_status, delete_tunnel, record_ping, get_latest_pings,
     request_tunnel_restart, request_all_agents_restart,
     save_log_snapshots, get_log_snapshots, delete_log_snapshots,
-    set_tunnel_absolute_traffic
+    set_tunnel_absolute_traffic, update_tunnel_traffic,
+    record_traffic_sample, clean_old_traffic_samples, get_traffic_history
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
 from app.gost_engine import generate_gost_server_command, generate_gost_client_command
@@ -96,6 +97,10 @@ class HTTPServer:
         self.host = host
         self.port = port
         self.server = None
+        self.node_traffic_tracker = {} # node_id -> dict
+        self.tunnel_traffic_tracker = {} # tun_id -> dict
+        self.tunnel_sample_tracker = {} # tun_id -> float
+        self.last_cleanup_time = 0
 
     async def start(self):
         init_db()
@@ -105,76 +110,73 @@ class HTTPServer:
         asyncio.create_task(self.background_traffic_collector())
 
     async def background_traffic_collector(self):
-        # Background task that polls kernel socket stats (ss -ti) every 3 seconds
+        # Background task that records time-series samples and performs retention cleanup
         while True:
             try:
-                await asyncio.sleep(3)
-                tunnels = list_tunnels()
-                changed = False
-                for tun in tunnels:
-                    # Paqet uses raw sockets, which are invisible to ss. Its
-                    # dedicated server-side raw-table counters are reported by the
-                    # node agent, so never overwrite them with socket statistics.
-                    if tun.get("core_type") == "paqet":
-                        continue
-                    tun_id = tun["id"]
-                    ports = tun.get("ports", [])
-                    core_port = tun.get("core_port")
-                    
-                    port_list = []
-                    for r in ports:
-                        rule_str = str(r).strip()
-                        left = rule_str.split("=")[0].strip()
-                        if ":" in left:
-                            left = left.split(":")[-1]
-                        try:
-                            p = int(left)
-                            if 1 <= p <= 65535:
-                                port_list.append(p)
-                        except:
-                            pass
-                    if core_port:
-                        try:
-                            port_list.append(int(core_port))
-                        except:
-                            pass
-                    
-                    if not port_list:
-                        continue
-                    
-                    conds = " or ".join([f"sport = :{p} or dport = :{p}" for p in set(port_list)])
-                    cmd = f"ss -ti '{conds}'"
+                await asyncio.sleep(15)
+                now = time.time()
+                # Run sample retention cleanup once every 6 hours
+                if now - self.last_cleanup_time > 21600:
                     try:
-                        proc = await asyncio.create_subprocess_shell(
-                            cmd,
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE
-                        )
-                        stdout, _ = await proc.communicate()
-                        out = stdout.decode('utf-8', errors='ignore')
-                        
-                        bytes_sent_list = [int(x) for x in re.findall(r'bytes_sent:(\d+)', out)]
-                        bytes_rcvd_list = [int(x) for x in re.findall(r'bytes_received:(\d+)', out)]
-                        
-                        cur_rcvd = sum(bytes_rcvd_list)
-                        cur_sent = sum(bytes_sent_list)
-                        
-                        prev_in = tun.get("bytes_in", 0) or 0
-                        prev_out = tun.get("bytes_out", 0) or 0
-                        
-                        new_in = max(prev_in, cur_rcvd)
-                        new_out = max(prev_out, cur_sent)
-                        
-                        if new_in != prev_in or new_out != prev_out:
-                            set_tunnel_absolute_traffic(tun_id, new_in, new_out)
-                            changed = True
+                        clean_old_traffic_samples(retention_days=35)
+                        self.last_cleanup_time = now
                     except Exception:
                         pass
-                
-                if changed:
-                    await broadcast_ws({"event": "tunnel_updated"})
+
+                # Sample local master node network traffic from /proc/net/dev directly
+                try:
+                    rx_total = 0
+                    tx_total = 0
+                    if os.path.exists("/proc/net/dev"):
+                        with open("/proc/net/dev", "r") as f:
+                            for line in f:
+                                if ":" in line:
+                                    parts = line.split(":")
+                                    iface = parts[0].strip()
+                                    if iface == "lo" or iface.startswith("tun") or iface.startswith("docker"):
+                                        continue
+                                    stats = parts[1].split()
+                                    if len(stats) >= 9:
+                                        rx_total += int(stats[0])
+                                        tx_total += int(stats[8])
+
+                        nodes = list_nodes()
+                        master_node = next((n for n in nodes if n.get("role") == "iran"), None)
+                        if master_node:
+                            m_id = master_node["id"]
+                            prev = self.node_traffic_tracker.get(m_id)
+                            if prev:
+                                elapsed = max(1.0, now - prev["last_time"])
+                                delta_rx = max(0, rx_total - prev["rx"])
+                                delta_tx = max(0, tx_total - prev["tx"])
+                                r_in = (delta_rx * 8.0) / (elapsed * 1_000_000.0)
+                                r_out = (delta_tx * 8.0) / (elapsed * 1_000_000.0)
+
+                                if now - prev.get("last_sample_time", 0) >= 30:
+                                    record_traffic_sample("node", m_id, delta_rx, delta_tx, r_in, r_out)
+                                    prev["last_sample_time"] = now
+
+                                prev["last_time"] = now
+                                prev["rx"] = rx_total
+                                prev["tx"] = tx_total
+                                update_node_heartbeat(
+                                    m_id, master_node.get("ip", "127.0.0.1"),
+                                    master_node.get("cpu_percent", 0),
+                                    master_node.get("ram_used_mb", 0),
+                                    master_node.get("ram_total_mb", 0),
+                                    master_node.get("uptime_seconds", 0),
+                                    net_rx_bytes=rx_total, net_tx_bytes=tx_total,
+                                    rate_in_mbps=r_in, rate_out_mbps=r_out
+                                )
+                            else:
+                                self.node_traffic_tracker[m_id] = {
+                                    "last_time": now, "rx": rx_total, "tx": tx_total,
+                                    "last_sample_time": now
+                                }
+                except Exception:
+                    pass
             except Exception:
-                await asyncio.sleep(4)
+                await asyncio.sleep(5)
 
     async def handle_client(self, reader, writer):
         try:
@@ -508,10 +510,46 @@ class HTTPServer:
 
         if method == "POST" and path == "/api/tunnels/traffic":
             data = json.loads(body.decode('utf-8'))
-            from app.db import update_tunnel_traffic
+            now = time.time()
             for rep in data.get("reports", []):
-                update_tunnel_traffic(rep.get("tunnel_id"), rep.get("bytes_in", 0), rep.get("bytes_out", 0))
+                tun_id = rep.get("tunnel_id")
+                b_in = int(rep.get("bytes_in", 0) or 0)
+                b_out = int(rep.get("bytes_out", 0) or 0)
+                if not tun_id or (b_in == 0 and b_out == 0):
+                    continue
+                update_tunnel_traffic(tun_id, b_in, b_out)
+
+                prev_tun = self.tunnel_traffic_tracker.get(tun_id, {"time": now, "accum_in": 0, "accum_out": 0})
+                elapsed = max(1.0, now - prev_tun.get("time", now))
+                r_in = (b_in * 8.0) / (elapsed * 1_000_000.0)
+                r_out = (b_out * 8.0) / (elapsed * 1_000_000.0)
+
+                accum_in = prev_tun.get("accum_in", 0) + b_in
+                accum_out = prev_tun.get("accum_out", 0) + b_out
+
+                last_sample = self.tunnel_sample_tracker.get(tun_id, 0)
+                if now - last_sample >= 30:
+                    record_traffic_sample("tunnel", tun_id, accum_in, accum_out, r_in, r_out)
+                    self.tunnel_sample_tracker[tun_id] = now
+                    accum_in = 0
+                    accum_out = 0
+
+                self.tunnel_traffic_tracker[tun_id] = {
+                    "time": now,
+                    "accum_in": accum_in,
+                    "accum_out": accum_out
+                }
+
             self.send_json(writer, {"success": True})
+            await broadcast_ws({"event": "tunnel_updated"})
+            return
+
+        if method == "GET" and path == "/api/metrics/bandwidth":
+            t_type = query.get("target_type", ["all"])[0]
+            t_id = query.get("target_id", ["all"])[0]
+            t_range = query.get("range", ["24h"])[0]
+            history = get_traffic_history(target_type=t_type, target_id=t_id, time_range=t_range)
+            self.send_json(writer, history)
             return
 
         if method == "POST" and "/api/tunnels/" in path and path.endswith("/restart"):
@@ -667,12 +705,48 @@ class HTTPServer:
             
             data = json.loads(body.decode('utf-8'))
             client_ip = headers.get("x-forwarded-for") or data.get("public_ip") or writer.get_extra_info('peername')[0]
+            
+            now = time.time()
+            net_rx = data.get("net_rx_bytes")
+            net_tx = data.get("net_tx_bytes")
+            r_in = 0.0
+            r_out = 0.0
+            node_id = node["id"]
+
+            if net_rx is not None and net_tx is not None:
+                rx_val = int(net_rx)
+                tx_val = int(net_tx)
+                prev = self.node_traffic_tracker.get(node_id)
+                if prev:
+                    elapsed = max(1.0, now - prev["last_time"])
+                    delta_rx = max(0, rx_val - prev["rx"])
+                    delta_tx = max(0, tx_val - prev["tx"])
+                    r_in = (delta_rx * 8.0) / (elapsed * 1_000_000.0)
+                    r_out = (delta_tx * 8.0) / (elapsed * 1_000_000.0)
+
+                    if now - prev.get("last_sample_time", 0) >= 30:
+                        record_traffic_sample("node", node_id, delta_rx, delta_tx, r_in, r_out)
+                        prev["last_sample_time"] = now
+
+                    prev["last_time"] = now
+                    prev["rx"] = rx_val
+                    prev["tx"] = tx_val
+                else:
+                    self.node_traffic_tracker[node_id] = {
+                        "last_time": now, "rx": rx_val, "tx": tx_val,
+                        "last_sample_time": now
+                    }
+
             update_node_heartbeat(
                 node["id"], client_ip,
                 data.get("cpu_percent", 0),
                 data.get("ram_used_mb", 0),
                 data.get("ram_total_mb", 0),
-                data.get("uptime_seconds", 0)
+                data.get("uptime_seconds", 0),
+                net_rx_bytes=net_rx,
+                net_tx_bytes=net_tx,
+                rate_in_mbps=r_in,
+                rate_out_mbps=r_out
             )
 
             # Return all active tunnel configs for this node
