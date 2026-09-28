@@ -21,7 +21,9 @@ LOG_DIR = f"{HAWAL_DIR}/logs"
 HAWAL_CORE_BIN = f"{BIN_DIR}/hawal-core"
 BACKHAUL_BIN = f"{BIN_DIR}/backhaul"
 PAQET_BIN = f"{BIN_DIR}/paqet"
+GOST_BIN = f"{BIN_DIR}/gost"
 AGENT_JSON_PATH = "/etc/hawal/agent.json"
+AGENT_RESTART_NONCE_PATH = f"{HAWAL_DIR}/agent-restart-nonce"
 
 class HawalAgent:
     def __init__(self, panel_url, token, role="kharej", node_name=""):
@@ -33,10 +35,24 @@ class HawalAgent:
         self.running_configs = {}   # {tunnel_id: hash}
         self.running_metadata = {}  # {tunnel_id: runtime details used for cleanup}
         self.shutdown_requested = False
+        self.last_log_report = 0
+        self.agent_restart_nonce = self._load_agent_restart_nonce()
 
         os.makedirs(BIN_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(LOG_DIR, exist_ok=True)
+        self.cleanup_orphaned_cores()
+
+    def _load_agent_restart_nonce(self):
+        try:
+            with open(AGENT_RESTART_NONCE_PATH, "r") as f:
+                return int(f.read().strip() or 0)
+        except Exception:
+            return 0
+
+    def _save_agent_restart_nonce(self, nonce):
+        with open(AGENT_RESTART_NONCE_PATH, "w") as f:
+            f.write(str(nonce))
 
     def get_system_metrics(self):
         metrics = {
@@ -174,6 +190,38 @@ class HawalAgent:
             return False
         return os.path.exists(PAQET_BIN)
 
+    def ensure_gost_binary(self):
+        if os.path.isfile(GOST_BIN) and os.access(GOST_BIN, os.X_OK):
+            return True
+        try:
+            import platform, tarfile, io
+            machine = platform.machine().lower()
+            if machine in ("x86_64", "amd64"):
+                arch = "amd64"
+            elif machine in ("aarch64", "arm64"):
+                arch = "arm64"
+            else:
+                raise RuntimeError(f"unsupported CPU architecture: {machine}")
+            version = "3.2.6"
+            url = f"https://github.com/go-gost/gost/releases/download/v{version}/gost_{version}_linux_{arch}.tar.gz"
+            print(f"[Agent] 📥 Installing GOST v{version} ({arch})...")
+            req = urllib.request.Request(url, headers={"User-Agent": "Hawal-Agent"})
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                with tarfile.open(fileobj=io.BytesIO(resp.read()), mode="r:gz") as tar:
+                    member = next((m for m in tar.getmembers() if m.isfile() and os.path.basename(m.name) == "gost"), None)
+                    if not member:
+                        raise RuntimeError("gost binary was not found in release archive")
+                    source = tar.extractfile(member)
+                    with open(f"{GOST_BIN}.download", "wb") as out:
+                        out.write(source.read())
+            os.chmod(f"{GOST_BIN}.download", 0o755)
+            os.replace(f"{GOST_BIN}.download", GOST_BIN)
+            print("[Agent] ✅ GOST binary installed successfully.")
+            return True
+        except Exception as e:
+            print(f"[Agent] ❌ Failed to install GOST binary: {e}")
+            return False
+
     def get_network_info(self):
         iface = ""
         local_ip = ""
@@ -288,7 +336,36 @@ class HawalAgent:
                 data = json.loads(response.read().decode('utf-8'))
                 configs = data.get("configs", [])
                 self.apply_configs(configs)
+                requested_nonce = int(data.get("agent_restart_nonce", 0) or 0)
+                if requested_nonce > self.agent_restart_nonce:
+                    self._save_agent_restart_nonce(requested_nonce)
+                    self.agent_restart_nonce = requested_nonce
+                    print("[Agent] 🔄 Restart requested by panel.")
+                    self.shutdown_requested = True
         except Exception as e:
+            pass
+
+    def report_logs(self):
+        if time.time() - self.last_log_report < 12:
+            return
+        snapshots = {}
+        try:
+            result = subprocess.run(["journalctl", "-u", "hawal-agent", "-n", "80", "--no-pager"], capture_output=True, text=True, timeout=4)
+            snapshots["agent"] = result.stdout[-12000:]
+            for tun_id in self.running_processes:
+                path = f"{LOG_DIR}/{tun_id}.log"
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        f.seek(max(0, os.path.getsize(path) - 12000))
+                        snapshots[f"tunnel:{tun_id}"] = f.read().decode("utf-8", errors="replace")
+            req = urllib.request.Request(
+                f"{self.panel_url}/api/agent/logs",
+                data=json.dumps({"snapshots": snapshots}).encode("utf-8"),
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"}, method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                self.last_log_report = time.time()
+        except Exception:
             pass
 
     def apply_configs(self, configs):
@@ -297,6 +374,7 @@ class HawalAgent:
         for item in configs:
             tun_id = item["tunnel_id"]
             core_type = item.get("core_type", "hawal")
+            restart_marker = f"\x00restart:{item.get('restart_nonce', 0)}"
             active_ids.add(tun_id)
 
             proc = self.running_processes.get(tun_id)
@@ -309,19 +387,27 @@ class HawalAgent:
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
-                if not is_running or self.running_configs.get(tun_id) != cfg_content:
+                marker = cfg_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
-                    self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], cfg_content)
+                    self.restart_tunnel_process(
+                        tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], marker,
+                        {"core_type": "hawal", "role": item.get("role", "server"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
+                    )
 
             elif core_type == "backhaul":
                 self.ensure_backhaul_binary()
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.toml"
                 toml_content = item.get("toml", "")
-                if not is_running or self.running_configs.get(tun_id) != toml_content:
+                marker = toml_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(toml_content)
-                    self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], toml_content)
+                    self.restart_tunnel_process(
+                        tun_id, [BACKHAUL_BIN, "-c", cfg_path], marker,
+                        {"core_type": "backhaul", "role": item.get("role", "server"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
+                    )
 
             elif core_type == "paqet":
                 if not self.ensure_paqet_binary():
@@ -339,7 +425,8 @@ class HawalAgent:
                     continue
                 yaml_content = yaml_template.replace("{{INTERFACE}}", iface).replace("{{LOCAL_IP}}", local_ip).replace("{{ROUTER_MAC}}", gw_mac)
 
-                if not is_running or self.running_configs.get(tun_id) != yaml_content:
+                marker = yaml_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     self.stop_tunnel_process(tun_id)
                     with open(cfg_path, "w") as f:
                         f.write(yaml_content)
@@ -348,8 +435,23 @@ class HawalAgent:
                     self.restart_tunnel_process(
                         tun_id,
                         [PAQET_BIN, "run", "-c", cfg_path],
-                        yaml_content,
+                        marker,
                         {"core_type": "paqet", "role": role, "core_port": core_port, "ports": ports}
+                    )
+
+            elif core_type == "gost":
+                if not self.ensure_gost_binary():
+                    continue
+                command = item.get("command", [])
+                if not command:
+                    print(f"[Agent] ❌ GOST {tun_id} not started: empty command.")
+                    continue
+                command_content = json.dumps(command, separators=(",", ":"))
+                marker = command_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
+                    self.restart_tunnel_process(
+                        tun_id, [GOST_BIN] + command, marker,
+                        {"core_type": "gost", "role": item.get("role", "client"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
                     )
 
         # Stop removed tunnels
@@ -358,13 +460,58 @@ class HawalAgent:
                 print(f"[Agent] 🛑 Stopping removed tunnel {tun_id}...")
                 self.stop_tunnel_process(tun_id)
 
+    def cleanup_orphaned_cores(self):
+        """Clean up rogue or orphaned core processes from previous crashed sessions."""
+        try:
+            core_binaries = (HAWAL_CORE_BIN, BACKHAUL_BIN, PAQET_BIN, GOST_BIN)
+            for bin_path in core_binaries:
+                name = os.path.basename(bin_path)
+                subprocess.run(["pkill", "-9", "-f", f"{BIN_DIR}/{name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+    def _extract_ports(self, metadata):
+        ports_to_free = set()
+        if not metadata:
+            return ports_to_free
+        core_port = metadata.get("core_port")
+        if core_port:
+            try:
+                ports_to_free.add(int(core_port))
+            except Exception:
+                pass
+        for rule in metadata.get("ports", []):
+            try:
+                p_str = str(rule).split("=")[0].split(":")[-1].strip()
+                ports_to_free.add(int(p_str))
+            except Exception:
+                pass
+        return ports_to_free
+
+    def _free_ports(self, ports):
+        for port in ports:
+            try:
+                subprocess.run(["fuser", "-k", "-9", f"{port}/tcp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["fuser", "-k", "-9", f"{port}/udp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+        if ports:
+            time.sleep(0.1)
+
     def restart_tunnel_process(self, tun_id, cmd, content_hash, metadata=None):
         self.stop_tunnel_process(tun_id)
+        ports = self._extract_ports(metadata)
+        self._free_ports(ports)
         try:
             print(f"[Agent] 🚀 Launching tunnel {tun_id} -> {' '.join(cmd)}")
             log_path = f"{LOG_DIR}/{tun_id}.log"
             log_file = open(log_path, "a")
-            proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True
+            )
             log_file.close()
             self.running_processes[tun_id] = proc
             self.running_configs[tun_id] = content_hash
@@ -376,13 +523,39 @@ class HawalAgent:
         metadata = self.running_metadata.get(tun_id, {})
         if tun_id in self.running_processes:
             proc = self.running_processes[tun_id]
+            pid = proc.pid
             try:
-                proc.terminate()
-                proc.wait(timeout=2)
-            except:
-                proc.kill()
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    break
+                time.sleep(0.05)
+            if proc.poll() is None:
+                try:
+                    pgid = os.getpgid(pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                try:
+                    proc.wait(timeout=1)
+                except Exception:
+                    pass
             del self.running_processes[tun_id]
             self.running_configs.pop(tun_id, None)
+
+        ports = self._extract_ports(metadata)
+        self._free_ports(ports)
+
         if metadata.get("core_type") == "paqet":
             self.cleanup_paqet_iptables(metadata.get("role"), metadata.get("core_port"), metadata.get("ports"))
         self.running_metadata.pop(tun_id, None)
@@ -491,6 +664,7 @@ class HawalAgent:
             while not self.shutdown_requested:
                 self.send_heartbeat()
                 self.sync_tunnels()
+                self.report_logs()
                 self.track_and_report_traffic()
                 time.sleep(4)
         finally:

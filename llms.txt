@@ -1,0 +1,28 @@
+# Hawal Tunnel (هه‌واڵ)
+> Next-Generation Censorship-Resilient Tunneling Framework & Multi-Core Relay Hub
+
+Hawal is an enterprise-grade, multi-node reverse tunneling system designed for hostile network environments and deep packet inspection (DPI) evasion. It bridges edge nodes behind restrictive firewalls (such as Iran TIC / GFW) with international exit gateways using advanced multiplexing, noise encryption, raw packet injection, and camouflaged transports.
+
+## Core Capabilities
+- **Hawal Core v2 (Stealth Engine)**: Hybrid carrier architecture supporting pure TCP, TLS-HTTP camouflage (GOST-style), and RawPaq (KCP/Raw-packet with zero-TCP-handshake signature). Features ChaCha20-Poly1305 AEAD, X25519 ephemeral key exchange (PFS), dynamic frame padding, and stream multiplexing.
+- **GOST v3 Relay Integration**: Native management and orchestration of GOST v3 Relay with TLS, WebSocket, KCP, and QUIC transports.
+- **Paqet Raw-Packet Carrier**: Layer 3/4 raw packet manipulation with iptables NOTRACK and TCP RST filtering for deep DPI bypass.
+- **Backhaul Relay**: High-speed multiplexed tunnel transport.
+- **Master Web Dashboard & REST/WebSocket API**: Real-time traffic analytics, latency monitoring, live logs, one-click agent installation, and dynamic core switching without downtime.
+- **Zero-Conflict Process & Port Manager**: Process-group isolated daemons (`os.setsid`/`os.killpg`) with deterministic socket and port cleanup to eliminate socket collision (`EADDRINUSE`) when changing cores or port mappings.
+
+## Architectural Components
+- `core/v2/`: Hawal Core v2 Go implementation
+  - `carrier/`: Pluggable carriers (`tcp`, `tls`, `rawpaq`)
+  - `engine/`: Session manager, stream router, duplex relay
+  - `secure/`: Noise-based cryptographic handshake with forward secrecy
+  - `record/`: Framed record layer with padding and length obfuscation
+  - `mux/`: Dynamic multiplexing scheduler
+  - `controller/`: Real-time path classification and failover
+- `app/`: Master Control Panel (Python/Asyncio + SQLite + WebSockets)
+- `agent/`: Node agent daemon managing core lifecycles and metrics
+
+## Repository & Links
+- Repository: https://github.com/dalroot/hawal
+- Releases: https://github.com/dalroot/hawal/releases
+- License: MIT License

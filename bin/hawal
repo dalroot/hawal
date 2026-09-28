@@ -1,0 +1,551 @@
+#!/usr/bin/env python3
+"""
+⚡ Hawal CLI - Unified Tunnel Management Interface
+Zero-dependency CLI for Master Panels & Node Agents.
+Supports multi-tunnel inspection, latency benchmarks, live logs & interactive dashboard.
+"""
+
+import os
+import sys
+import time
+import json
+import sqlite3
+import socket
+import ssl
+import subprocess
+import shutil
+from pathlib import Path
+
+# Styling & ANSI Colors
+C_RESET = "\033[0m"
+C_BOLD = "\033[1m"
+C_DIM = "\033[2m"
+C_GREEN = "\033[32m"
+C_RED = "\033[31m"
+C_YELLOW = "\033[33m"
+C_CYAN = "\033[36m"
+C_MAGENTA = "\033[35m"
+C_BLUE = "\033[34m"
+
+PANEL_SERVICE = "hawal-panel"
+AGENT_SERVICE = "hawal-agent"
+AGENT_JSON = "/etc/hawal/agent.json"
+HAWAL_DIR = "/opt/hawal"
+PANEL_DIR = "/opt/hawal-panel"
+MASTER_DB = "/root/.hawal/hawal.db"
+GUIDE_FILE = "/opt/hawal/AGENT_GUIDE.md"
+
+def is_root():
+    return os.geteuid() == 0
+
+def detect_role():
+    """Detect whether running on Master (Iran) or Node Agent (Foreign)."""
+    has_panel_unit = Path("/etc/systemd/system/hawal-panel.service").exists()
+    has_agent_unit = Path("/etc/systemd/system/hawal-agent.service").exists()
+    has_master_db = Path(MASTER_DB).exists()
+
+    if has_panel_unit or has_master_db:
+        return "master"
+    if has_agent_unit or Path(AGENT_JSON).exists():
+        return "agent"
+    return "unknown"
+
+def run_cmd(cmd, timeout=10):
+    try:
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        return res.returncode, res.stdout.strip(), res.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return -1, "", "Command timed out"
+    except Exception as e:
+        return -1, "", str(e)
+
+def format_bytes(bytes_count):
+    try:
+        n = float(bytes_count or 0)
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if n < 1024.0:
+                return f"{n:.1f} {unit}"
+            n /= 1024.0
+        return f"{n:.1f} PB"
+    except:
+        return "0 B"
+
+def service_status(service_name):
+    rc, out, _ = run_cmd(f"systemctl is-active {service_name}")
+    if out == "active":
+        return f"{C_GREEN}● Active (Running){C_RESET}", True
+    elif out == "inactive":
+        return f"{C_YELLOW}○ Inactive (Stopped){C_RESET}", False
+    elif out == "failed":
+        return f"{C_RED}✗ Failed{C_RESET}", False
+    return f"{C_DIM}Not Installed{C_RESET}", False
+
+# -------------------------------------------------------------
+# MASTER (Iran) Helpers
+# -------------------------------------------------------------
+def get_master_db_connection():
+    if not os.path.exists(MASTER_DB):
+        return None
+    try:
+        return sqlite3.connect(MASTER_DB)
+    except:
+        return None
+
+def master_get_nodes():
+    con = get_master_db_connection()
+    if not con:
+        return []
+    try:
+        cur = con.cursor()
+        cols = [c[1] for c in cur.execute("PRAGMA table_info(nodes)").fetchall()]
+        rows = cur.execute("SELECT * FROM nodes").fetchall()
+        con.close()
+        return [dict(zip(cols, r)) for r in rows]
+    except:
+        return []
+
+def master_get_tunnels():
+    con = get_master_db_connection()
+    if not con:
+        return []
+    try:
+        cur = con.cursor()
+        cols = [c[1] for c in cur.execute("PRAGMA table_info(tunnels)").fetchall()]
+        rows = cur.execute("SELECT * FROM tunnels").fetchall()
+        con.close()
+        return [dict(zip(cols, r)) for r in rows]
+    except:
+        return []
+
+# -------------------------------------------------------------
+# AGENT (Foreign) Helpers
+# -------------------------------------------------------------
+def agent_get_config():
+    if not os.path.exists(AGENT_JSON):
+        return {}
+    try:
+        with open(AGENT_JSON, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+# -------------------------------------------------------------
+# COMMAND: hawal tunnels
+# -------------------------------------------------------------
+def cmd_tunnels():
+    role = detect_role()
+    print(f"\n{C_BOLD}{C_CYAN}========================================================================================================{C_RESET}")
+    print(f" {C_BOLD}🚀 Hawal Active Tunnels Registry{C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}========================================================================================================{C_RESET}")
+
+    if role == "master":
+        tunnels = master_get_tunnels()
+        nodes = {n["id"]: n for n in master_get_nodes()}
+
+        if not tunnels:
+            print(f"  {C_YELLOW}No tunnels configured in master database.{C_RESET}\n")
+            return
+
+        header = f" {'ID':<14} {'NAME':<12} {'CORE/PROTO':<14} {'PORT MAPPINGS (IN -> DST)':<38} {'REMOTE DEST':<22} {'STATUS':<10}"
+        print(f"{C_DIM}{header}{C_RESET}")
+        print(f"{C_DIM}{'-'*114}{C_RESET}")
+
+        for t in tunnels:
+            tid = t.get("id", "")
+            name = t.get("name", "Tunnel")
+            core = t.get("core_type", "gost").upper()
+            trans = t.get("transport", "tls").upper()
+            core_info = f"{core}/{trans}"
+
+            # Ports
+            raw_ports = t.get("ports_json", "[]")
+            try:
+                ports_list = json.loads(raw_ports) if isinstance(raw_ports, str) else raw_ports
+                ports_str = ", ".join(ports_list[:3])
+                if len(ports_list) > 3:
+                    ports_str += f" (+{len(ports_list)-3})"
+            except:
+                ports_str = str(raw_ports)
+
+            # Node destination
+            client_nid = t.get("client_node_id", "")
+            target_node = nodes.get(client_nid, {})
+            node_name = target_node.get("name", "Node")
+            node_ip = target_node.get("ip", "")
+            dest_str = f"{node_name} ({node_ip})" if node_ip else "Unknown"
+
+            # Status
+            status_raw = t.get("status", "running")
+            status_badge = f"{C_GREEN}● Running{C_RESET}" if status_raw == "running" else f"{C_RED}○ Stopped{C_RESET}"
+
+            print(f" {C_BOLD}{tid:<14}{C_RESET} {name:<12} {core_info:<14} {ports_str:<38} {dest_str:<22} {status_badge}")
+
+        print(f"{C_DIM}{'-'*114}{C_RESET}")
+        print(f" {C_DIM}Total Tunnels: {len(tunnels)} | Inspect live tunnel logs: hawal logs <ID>{C_RESET}\n")
+
+    else:
+        # Agent role
+        cfg = agent_get_config()
+        panel_url = cfg.get("panel_url", "")
+        rc, out, _ = run_cmd("ps -eo pid,cmd | grep -E 'gost|hawal-core|paqet' | grep -v grep")
+        proc_lines = [l.strip() for l in out.splitlines() if l.strip()]
+
+        print(f" {C_BOLD}Node Role:{C_RESET} Client / Foreign Node ({cfg.get('name', 'Agent')})")
+        print(f" {C_BOLD}Master Panel:{C_RESET} {panel_url}\n")
+        print(f"{C_DIM}{'PID':<12} {'ACTIVE PROCESS / EXECUTABLE':<78}{C_RESET}")
+        print(f"{C_DIM}{'-'*90}{C_RESET}")
+
+        if not proc_lines:
+            print(f"  {C_YELLOW}No active tunnel processes running on this node.{C_RESET}")
+        else:
+            for line in proc_lines:
+                parts = line.split(maxsplit=1)
+                pid = parts[0]
+                cmd = parts[1] if len(parts) > 1 else ""
+                short_cmd = cmd.replace("/opt/hawal/bin/", "")
+                if len(short_cmd) > 75:
+                    short_cmd = short_cmd[:72] + "..."
+                print(f" {C_GREEN}PID {pid:<8}{C_RESET} {C_BOLD}{short_cmd}{C_RESET}")
+
+        print(f"{C_DIM}{'-'*90}{C_RESET}")
+        print(f" {C_DIM}Stream live logs: hawal logs{C_RESET}\n")
+
+# -------------------------------------------------------------
+# COMMAND: hawal ping
+# -------------------------------------------------------------
+def test_socket_latency(host, port, timeout=2.0, use_tls=False):
+    t_start = time.time()
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        if use_tls:
+            ctx = ssl._create_unverified_context()
+            s = ctx.wrap_socket(s)
+        s.connect((host, port))
+        elapsed_ms = (time.time() - t_start) * 1000.0
+        s.close()
+        return True, elapsed_ms
+    except Exception as e:
+        return False, str(e)
+
+def cmd_ping():
+    role = detect_role()
+    print(f"\n{C_BOLD}{C_CYAN}===================================================================================={C_RESET}")
+    print(f" {C_BOLD}🌐 Hawal Tunnel Latency & Health Benchmark{C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}===================================================================================={C_RESET}")
+
+    if role == "master":
+        nodes = master_get_nodes()
+        tunnels = master_get_tunnels()
+        kharej_nodes = [n for n in nodes if n.get("role") != "iran"]
+
+        if not kharej_nodes:
+            print(f"  {C_YELLOW}No remote nodes registered in master panel.{C_RESET}\n")
+            return
+
+        for node in kharej_nodes:
+            name = node.get("name", "Node")
+            ip = node.get("ip", "")
+            flag = node.get("flag", "🌐")
+            print(f"\n {C_BOLD}{flag} Destination: {name} ({ip}){C_RESET}")
+
+            # 1. REX Port 7444
+            ok, ms = test_socket_latency(ip, 7444, timeout=2.5)
+            if ok:
+                print(f"  ├─ REX Secure Socket (TCP:7444):     {C_GREEN}{ms:6.1f} ms{C_RESET}  [Established / OK]")
+            else:
+                print(f"  ├─ REX Secure Socket (TCP:7444):     {C_RED}Failed ({ms}){C_RESET}")
+
+            # 2. Each Tunnel core port
+            node_tunnels = [t for t in tunnels if t.get("client_node_id") == node.get("id")]
+            for t in node_tunnels:
+                core_port = int(t.get("core_port", 0) or 0)
+                t_name = t.get("name", "Tunnel")
+                if core_port > 0:
+                    ok_t, ms_t = test_socket_latency(ip, core_port, timeout=2.5, use_tls=True)
+                    if ok_t:
+                        print(f"  ├─ Tunnel '{t_name}' (Relay TLS:{core_port}): {C_GREEN}{ms_t:6.1f} ms{C_RESET}  [TLS 1.3 Handshake OK]")
+                    else:
+                        print(f"  ├─ Tunnel '{t_name}' (Relay TLS:{core_port}): {C_RED}Timeout / Rejected ({ms_t}){C_RESET}")
+
+            # 3. Local service targets (e.g. 2087, 2096)
+            for test_p in [2087, 2096]:
+                ok_x, ms_x = test_socket_latency(ip, test_p, timeout=2.0)
+                if ok_x:
+                    print(f"  └─ Service Target ({test_p}):                 {C_GREEN}{ms_x:6.1f} ms{C_RESET}  [Target Responsive]")
+                else:
+                    print(f"  └─ Service Target ({test_p}):                 {C_YELLOW}Filtered or Internal Only ({ms_x}){C_RESET}")
+
+    else:
+        # Agent role
+        cfg = agent_get_config()
+        panel_url = cfg.get("panel_url", "")
+        print(f" {C_BOLD}Local Node:{C_RESET} {cfg.get('name', 'Agent')}")
+        print(f" {C_BOLD}Master Panel:{C_RESET} {panel_url}")
+
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(panel_url)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port or 9090
+
+            ok, ms = test_socket_latency(host, port, timeout=3.0)
+            if ok:
+                print(f"  ├─ Master Web Panel ({host}:{port}):   {C_GREEN}{ms:6.1f} ms{C_RESET}  [Stable / Online]")
+            else:
+                print(f"  ├─ Master Web Panel ({host}:{port}):   {C_RED}Timeout ({ms}){C_RESET}")
+
+            for p in [443, 22]:
+                ok_p, ms_p = test_socket_latency(host, p, timeout=2.0)
+                status_str = f"{C_GREEN}{ms_p:6.1f} ms{C_RESET}" if ok_p else f"{C_DIM}Filtered / Blocked{C_RESET}"
+                print(f"  ├─ Master Standard Port ({p}):            {status_str}")
+
+        except Exception as e:
+            print(f"  {C_RED}Error parsing master panel URL: {e}{C_RESET}")
+
+    print(f"\n{C_BOLD}{C_CYAN}===================================================================================={C_RESET}\n")
+
+# -------------------------------------------------------------
+# COMMAND: hawal status
+# -------------------------------------------------------------
+def cmd_status():
+    role = detect_role()
+    print(f"\n{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+    print(f" {C_BOLD}📊 System & Service Status (Hawal Status){C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+
+    rc, up_str, _ = run_cmd("uptime -p 2>/dev/null || uptime")
+    rc, mem_str, _ = run_cmd("free -h | awk '/^Mem:/ {print $3 \" / \" $2}'")
+    rc, cpu_str, _ = run_cmd("top -bn1 | grep 'Cpu(s)' | awk '{print $2 + $4 \"%\"}' 2>/dev/null || echo 'N/A'")
+
+    print(f" ├─ Role:          {C_BOLD}{'Master Panel (Iran)' if role == 'master' else 'Node Agent (Foreign)'}{C_RESET}")
+    print(f" ├─ System Uptime: {up_str}")
+    print(f" ├─ RAM Usage:     {mem_str}")
+    print(f" ├─ CPU Load:      {cpu_str}")
+
+    if role == "master":
+        st, _ = service_status(PANEL_SERVICE)
+        print(f" ├─ Web Panel:     {st}")
+        st_ag, _ = service_status(AGENT_SERVICE)
+        print(f" ├─ Local Agent:   {st_ag}")
+
+        nodes = master_get_nodes()
+        tunnels = master_get_tunnels()
+        online_nodes = sum(1 for n in nodes if n.get("status") == "online")
+        running_tunnels = sum(1 for t in tunnels if t.get("status") == "running")
+
+        print(f" ├─ Nodes:         {C_GREEN}{online_nodes}{C_RESET} of {len(nodes)} Online")
+        print(f" └─ Tunnels:       {C_GREEN}{running_tunnels}{C_RESET} of {len(tunnels)} Active")
+
+    else:
+        st_ag, _ = service_status(AGENT_SERVICE)
+        cfg = agent_get_config()
+        print(f" ├─ Agent Daemon:  {st_ag}")
+        print(f" ├─ Node Name:     {cfg.get('name', 'Agent')}")
+        print(f" └─ Master Panel:  {cfg.get('panel_url', 'N/A')}")
+
+    print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}\n")
+
+# -------------------------------------------------------------
+# COMMAND: hawal logs
+# -------------------------------------------------------------
+def cmd_logs(arg=None):
+    role = detect_role()
+    if arg and arg.startswith("tun_"):
+        log_file = f"{HAWAL_DIR}/logs/{arg}.log"
+        if os.path.exists(log_file):
+            print(f"{C_CYAN}>>> Streaming live logs for {arg} (Press Ctrl+C to exit)...{C_RESET}")
+            os.system(f"tail -f -n 50 {log_file}")
+            return
+        else:
+            print(f"{C_RED}Log file not found for tunnel {arg} at {log_file}{C_RESET}")
+            return
+
+    service = PANEL_SERVICE if role == "master" else AGENT_SERVICE
+    print(f"{C_CYAN}>>> Streaming live systemd logs for {service} (Press Ctrl+C to exit)...{C_RESET}")
+    os.system(f"journalctl -u {service} -f -n 40 --no-pager")
+
+# -------------------------------------------------------------
+# COMMAND: hawal restart
+# -------------------------------------------------------------
+def cmd_restart(component=None):
+    if not is_root():
+        print(f"{C_RED}Error: Root privileges required. Please run: sudo hawal restart{C_RESET}")
+        return
+
+    role = detect_role()
+    if role == "master":
+        print(f"{C_YELLOW}Restarting Hawal Master Panel & Relay services...{C_RESET}")
+        run_cmd(f"systemctl restart {PANEL_SERVICE}")
+        run_cmd(f"systemctl restart {AGENT_SERVICE}")
+        print(f"{C_GREEN}✅ Master Panel & Agent restarted successfully.{C_RESET}")
+    else:
+        print(f"{C_YELLOW}Restarting Hawal Node Agent and active tunnels...{C_RESET}")
+        run_cmd(f"systemctl restart {AGENT_SERVICE}")
+        print(f"{C_GREEN}✅ Node Agent & tunnels restarted successfully.{C_RESET}")
+
+# -------------------------------------------------------------
+# COMMAND: hawal info
+# -------------------------------------------------------------
+def cmd_info():
+    role = detect_role()
+    print(f"\n{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+    print(f" {C_BOLD}ℹ️ Hawal Configuration & Credentials{C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+
+    if role == "master":
+        cfg_path = "/root/.hawal/config.json"
+        token = "N/A"
+        port = 9090
+        if os.path.exists(cfg_path):
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    token = data.get("master_token", "N/A")
+                    port = data.get("panel_port", 9090)
+            except:
+                pass
+
+        rc, ip, _ = run_cmd("curl -s -m 3 https://api.ipify.org || hostname -I | awk '{print $1}'")
+        print(f" ├─ Web URL:       {C_BOLD}http://{ip}:{port}{C_RESET}")
+        print(f" ├─ Port:          {port}")
+        print(f" └─ Master Token:  {C_YELLOW}{token}{C_RESET}")
+
+    else:
+        cfg = agent_get_config()
+        print(f" ├─ Node Name:     {cfg.get('name', 'N/A')}")
+        print(f" ├─ Role:          {cfg.get('role', 'kharej')}")
+        print(f" ├─ Master Panel:  {cfg.get('panel_url', 'N/A')}")
+        print(f" └─ Node Token:    {C_YELLOW}{cfg.get('token', 'N/A')}{C_RESET}")
+
+    print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}\n")
+
+# -------------------------------------------------------------
+# COMMAND: hawal guide
+# -------------------------------------------------------------
+def cmd_guide():
+    if os.path.exists(GUIDE_FILE):
+        os.system(f"cat {GUIDE_FILE} | less -R")
+    else:
+        print(f"\n{C_BOLD}📚 Hawal Agent Quick Guide{C_RESET}\n")
+        print(" 1. Client / Foreign nodes automatically sync tunnels from the Master Panel.")
+        print(" 2. To add or modify tunnels, update the configuration on the Master Panel.")
+        print(" 3. Firewall: Relay core ports (e.g., 3095, 3101) must be open inbound on the foreign VPS.")
+        print(" 4. Inspect active tunnels: hawal tunnels")
+        print(" 5. Measure latency: hawal ping\n")
+
+# -------------------------------------------------------------
+# COMMAND: hawal --help
+# -------------------------------------------------------------
+def cmd_help():
+    print(f"""
+{C_BOLD}{C_CYAN}⚡ Hawal Tunnel Unified CLI{C_RESET}
+Enterprise Tunnel Management, Multi-Tunnel Inspection & Diagnostics.
+
+{C_BOLD}Usage:{C_RESET}
+  {C_GREEN}hawal{C_RESET}                      Launch interactive terminal dashboard
+  {C_GREEN}hawal status{C_RESET}               Display system resources, uptime & service status
+  {C_GREEN}hawal tunnels{C_RESET}              Inspect all active tunnels, port mappings & destinations
+  {C_GREEN}hawal ping{C_RESET}                 Run live latency benchmark & TLS handshake tests
+  {C_GREEN}hawal logs [tunnel_id]{C_RESET}     Stream live logs (entire service or specific tunnel)
+  {C_GREEN}hawal restart{C_RESET}              Safely restart daemons and tunnels without orphan leaks
+  {C_GREEN}hawal info{C_RESET}                 Display credentials, tokens & panel access URL
+  {C_GREEN}hawal guide{C_RESET}                Read agent architecture and firewall guide
+  {C_GREEN}hawal --help, -h{C_RESET}           Show this help message
+
+{C_BOLD}Examples:{C_RESET}
+  hawal tunnels               # View complete active tunnels registry and ports
+  hawal ping                  # Benchmark socket and TLS handshakes to remote VPS
+  hawal logs tun_742c465f     # Follow live traffic stream on tunnel port 2087
+  hawal restart               # Restart agent/panel during network maintenance
+""")
+
+# -------------------------------------------------------------
+# INTERACTIVE DASHBOARD (hawal without arguments)
+# -------------------------------------------------------------
+def interactive_menu():
+    role = detect_role()
+    while True:
+        os.system("clear" if os.name == "posix" else "cls")
+        role_title = "Master Panel (Iran)" if role == "master" else "Node Agent (Foreign)"
+        st_text, _ = service_status(PANEL_SERVICE if role == "master" else AGENT_SERVICE)
+
+        print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+        print(f" {C_BOLD}⚡ Hawal Tunnel Control CLI{C_RESET}")
+        print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+        print(f" ├─ System Role:    {role_title}")
+        print(f" ├─ Service Status: {st_text}")
+        print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+        print(f" {C_BOLD}1){C_RESET} View Active Tunnels ({C_GREEN}hawal tunnels{C_RESET})")
+        print(f" {C_BOLD}2){C_RESET} Latency & Health Benchmark ({C_CYAN}hawal ping{C_RESET})")
+        print(f" {C_BOLD}3){C_RESET} Stream Live Logs ({C_YELLOW}hawal logs{C_RESET})")
+        print(f" {C_BOLD}4){C_RESET} System Health & Resources ({C_BLUE}hawal status{C_RESET})")
+        print(f" {C_BOLD}5){C_RESET} Access Credentials & Tokens ({C_MAGENTA}hawal info{C_RESET})")
+        print(f" {C_BOLD}6){C_RESET} Restart Services Safely (Restart)")
+        print(f" {C_BOLD}7){C_RESET} Read Agent Architecture Guide (Guide)")
+        print(f" {C_BOLD}0){C_RESET} Exit (Quit)")
+        print(f"{C_BOLD}{C_CYAN}===================================================={C_RESET}")
+
+        try:
+            choice = input("Select an option [0-7]: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting.")
+            sys.exit(0)
+
+        if choice == "1":
+            cmd_tunnels()
+            input(f"\n{C_DIM}Press Enter to return to menu...{C_RESET}")
+        elif choice == "2":
+            cmd_ping()
+            input(f"\n{C_DIM}Press Enter to return to menu...{C_RESET}")
+        elif choice == "3":
+            cmd_logs()
+        elif choice == "4":
+            cmd_status()
+            input(f"\n{C_DIM}Press Enter to return to menu...{C_RESET}")
+        elif choice == "5":
+            cmd_info()
+            input(f"\n{C_DIM}Press Enter to return to menu...{C_RESET}")
+        elif choice == "6":
+            cmd_restart()
+            input(f"\n{C_DIM}Press Enter to return to menu...{C_RESET}")
+        elif choice == "7":
+            cmd_guide()
+        elif choice in ["0", "q", "exit"]:
+            print("\nGoodbye.")
+            break
+
+# -------------------------------------------------------------
+# MAIN ENTRYPOINT
+# -------------------------------------------------------------
+def main():
+    if len(sys.argv) == 1:
+        interactive_menu()
+        return
+
+    arg = sys.argv[1].lower()
+    if arg in ["--help", "-h", "help"]:
+        cmd_help()
+    elif arg in ["status", "-s"]:
+        cmd_status()
+    elif arg in ["tunnels", "tunnel", "-t"]:
+        cmd_tunnels()
+    elif arg in ["ping", "test", "-p"]:
+        cmd_ping()
+    elif arg in ["log", "logs", "-l"]:
+        sub_arg = sys.argv[2] if len(sys.argv) > 2 else None
+        cmd_logs(sub_arg)
+    elif arg in ["restart", "reload", "-r"]:
+        sub_arg = sys.argv[2] if len(sys.argv) > 2 else None
+        cmd_restart(sub_arg)
+    elif arg in ["info", "token"]:
+        cmd_info()
+    elif arg in ["guide", "doc", "docs"]:
+        cmd_guide()
+    else:
+        print(f"{C_RED}Unknown command: {arg}{C_RESET}")
+        print(f"See available commands: {C_GREEN}hawal --help{C_RESET}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

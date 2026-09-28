@@ -41,6 +41,7 @@ class HawalAgent:
         os.makedirs(BIN_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(LOG_DIR, exist_ok=True)
+        self.cleanup_orphaned_cores()
 
     def _load_agent_restart_nonce(self):
         try:
@@ -390,7 +391,10 @@ class HawalAgent:
                 if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
-                    self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], marker)
+                    self.restart_tunnel_process(
+                        tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], marker,
+                        {"core_type": "hawal", "role": item.get("role", "server"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
+                    )
 
             elif core_type == "backhaul":
                 self.ensure_backhaul_binary()
@@ -400,7 +404,10 @@ class HawalAgent:
                 if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(toml_content)
-                    self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], marker)
+                    self.restart_tunnel_process(
+                        tun_id, [BACKHAUL_BIN, "-c", cfg_path], marker,
+                        {"core_type": "backhaul", "role": item.get("role", "server"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
+                    )
 
             elif core_type == "paqet":
                 if not self.ensure_paqet_binary():
@@ -444,7 +451,7 @@ class HawalAgent:
                 if not is_running or self.running_configs.get(tun_id) != marker:
                     self.restart_tunnel_process(
                         tun_id, [GOST_BIN] + command, marker,
-                        {"core_type": "gost", "role": item.get("role", "client")}
+                        {"core_type": "gost", "role": item.get("role", "client"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
                     )
 
         # Stop removed tunnels
@@ -453,13 +460,58 @@ class HawalAgent:
                 print(f"[Agent] 🛑 Stopping removed tunnel {tun_id}...")
                 self.stop_tunnel_process(tun_id)
 
+    def cleanup_orphaned_cores(self):
+        """Clean up rogue or orphaned core processes from previous crashed sessions."""
+        try:
+            core_binaries = (HAWAL_CORE_BIN, BACKHAUL_BIN, PAQET_BIN, GOST_BIN)
+            for bin_path in core_binaries:
+                name = os.path.basename(bin_path)
+                subprocess.run(["pkill", "-9", "-f", f"{BIN_DIR}/{name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+    def _extract_ports(self, metadata):
+        ports_to_free = set()
+        if not metadata:
+            return ports_to_free
+        core_port = metadata.get("core_port")
+        if core_port:
+            try:
+                ports_to_free.add(int(core_port))
+            except Exception:
+                pass
+        for rule in metadata.get("ports", []):
+            try:
+                p_str = str(rule).split("=")[0].split(":")[-1].strip()
+                ports_to_free.add(int(p_str))
+            except Exception:
+                pass
+        return ports_to_free
+
+    def _free_ports(self, ports):
+        for port in ports:
+            try:
+                subprocess.run(["fuser", "-k", "-9", f"{port}/tcp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["fuser", "-k", "-9", f"{port}/udp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+        if ports:
+            time.sleep(0.1)
+
     def restart_tunnel_process(self, tun_id, cmd, content_hash, metadata=None):
         self.stop_tunnel_process(tun_id)
+        ports = self._extract_ports(metadata)
+        self._free_ports(ports)
         try:
             print(f"[Agent] 🚀 Launching tunnel {tun_id} -> {' '.join(cmd)}")
             log_path = f"{LOG_DIR}/{tun_id}.log"
             log_file = open(log_path, "a")
-            proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True
+            )
             log_file.close()
             self.running_processes[tun_id] = proc
             self.running_configs[tun_id] = content_hash
@@ -471,13 +523,39 @@ class HawalAgent:
         metadata = self.running_metadata.get(tun_id, {})
         if tun_id in self.running_processes:
             proc = self.running_processes[tun_id]
+            pid = proc.pid
             try:
-                proc.terminate()
-                proc.wait(timeout=2)
-            except:
-                proc.kill()
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    break
+                time.sleep(0.05)
+            if proc.poll() is None:
+                try:
+                    pgid = os.getpgid(pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                try:
+                    proc.wait(timeout=1)
+                except Exception:
+                    pass
             del self.running_processes[tun_id]
             self.running_configs.pop(tun_id, None)
+
+        ports = self._extract_ports(metadata)
+        self._free_ports(ports)
+
         if metadata.get("core_type") == "paqet":
             self.cleanup_paqet_iptables(metadata.get("role"), metadata.get("core_port"), metadata.get("ports"))
         self.running_metadata.pop(tun_id, None)

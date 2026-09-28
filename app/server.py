@@ -302,14 +302,14 @@ class HTTPServer:
             if is_authenticated:
                 self.send_redirect(writer, "/")
                 return
-            self.serve_template("login.html", writer)
+            await self.serve_template("login.html", writer)
             return
 
         # 2. Static Files (Public)
         if method == "GET" and path.startswith("/static/"):
             rel_path = path.replace("/static/", "", 1)
             file_path = os.path.join(STATIC_DIR, rel_path)
-            self.serve_static_file(file_path, writer)
+            await self.serve_static_file(file_path, writer)
             return
 
         # 3. One-Line Node Installer Script (Public)
@@ -330,7 +330,7 @@ class HTTPServer:
             if not is_authenticated:
                 self.send_redirect(writer, "/login")
                 return
-            self.serve_template("index.html", writer)
+            await self.serve_template("index.html", writer)
             return
 
         # 3. REST API: Node Management
@@ -679,7 +679,7 @@ class HTTPServer:
             all_tunnels = list_tunnels()
             assigned_configs = []
             for t in all_tunnels:
-                if t["status"] == "running":
+                if t["status"] == "running" and t.get("core_type") == "backhaul":
                     if t["server_node_id"] == node["id"]:
                         cfg = generate_server_config(t)
                         assigned_configs.append({"tunnel_id": t["id"], "role": "server", "config": cfg, "restart_nonce": t.get("restart_nonce", 0)})
@@ -721,6 +721,7 @@ class HTTPServer:
                             "core_type": "paqet",
                             "role": "server",
                             "core_port": t.get("core_port", 8888),
+                            "ports": t.get("ports", []),
                             "yaml": generate_paqet_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     elif t["server_node_id"] == node["id"]:
@@ -741,6 +742,7 @@ class HTTPServer:
                     if t["client_node_id"] == node["id"]:
                         node_configs.append({
                             "tunnel_id": t["id"], "core_type": "gost", "role": "server",
+                            "core_port": t.get("core_port", 8443), "ports": t.get("ports", []),
                             "command": generate_gost_server_command(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     elif t["server_node_id"] == node["id"]:
@@ -748,6 +750,7 @@ class HTTPServer:
                         gost_server_ip = gost_server["ip"] if gost_server else "127.0.0.1"
                         node_configs.append({
                             "tunnel_id": t["id"], "core_type": "gost", "role": "client",
+                            "core_port": t.get("core_port", 8443), "ports": t.get("ports", []),
                             "command": generate_gost_client_command(t, gost_server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     continue
@@ -759,6 +762,8 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "server",
+                            "core_port": t.get("core_port", 8080),
+                            "ports": t.get("ports", []),
                             "config": generate_hawal_core_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     else:
@@ -766,6 +771,8 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "server",
+                            "core_port": t.get("core_port", 3096),
+                            "ports": t.get("ports", []),
                             "toml": generate_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
 
@@ -778,6 +785,8 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "client",
+                            "core_port": t.get("core_port", 8080),
+                            "ports": t.get("ports", []),
                             "config": generate_hawal_core_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     else:
@@ -785,6 +794,8 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "client",
+                            "core_port": t.get("core_port", 3096),
+                            "ports": t.get("ports", []),
                             "toml": generate_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
 
