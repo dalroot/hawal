@@ -3,229 +3,302 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hawal — مدیریت تانل</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260902-restart">
+  <title>Hawal — مدیریت تانل و زیرساخت شبکه</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260929-antislop">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
 <body>
   <div class="app-container">
     
+    <!-- =========================================================
+         SIDEBAR NAVIGATION
+    ========================================================== -->
     <aside class="sidebar">
-      <div class="cf-account-header" onclick="switchTab('dashboard')">
-        <div class="hawal-mark">H</div>
-        <div class="cf-account-info">
-          <div class="cf-account-name">Hawal</div>
-          <div class="cf-account-role"><span class="status-dot online"></span> شبکه متصل</div>
+      <div class="sidebar-header" onclick="switchTab('dashboard')">
+        <div class="hawal-logo-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <div class="hawal-title-wrap">
+          <div class="hawal-brand-title">هه‌واڵ Core</div>
+          <div class="hawal-brand-status">
+            <span class="status-dot online"></span> شبکه متصل
+          </div>
         </div>
       </div>
 
       <!-- Quick Search -->
-      <div class="cf-search-box-sidebar">
-        <div class="cf-search-input-wrapper">
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input type="text" id="sidebar-search-input" placeholder="جست‌وجو در نودها و تانل‌ها" oninput="handleQuickFilter(this.value)">
-          <span class="cf-kbd-badge">Ctrl K</span>
+      <div class="sidebar-search">
+        <div class="search-input-box">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" id="sidebar-search-input" placeholder="جست‌وجو در نودها و پورت‌ها" oninput="handleQuickFilter(this.value)">
+          <span class="kbd-badge">Ctrl K</span>
         </div>
       </div>
 
-      <!-- Navigation Tree -->
-      <div class="cf-nav-group">
-        <div class="cf-nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-          <span>نمای کلی</span>
+      <!-- Nav Sections -->
+      <div class="sidebar-nav">
+        <!-- Group 1: Monitoring -->
+        <div>
+          <div class="nav-section-title">مانیتورینگ و گزارش</div>
+          <div class="cf-nav-group">
+            <div class="cf-nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+              <span>نمای کلی داشبورد</span>
+            </div>
+          </div>
         </div>
 
-        <div class="cf-nav-item" id="nav-tunnels" onclick="switchTab('tunnels')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          <span>تانل‌ها</span>
+        <!-- Group 2: Infrastructure -->
+        <div>
+          <div class="nav-section-title">زیرساخت و ارتباطات</div>
+          <div class="cf-nav-group">
+            <div class="cf-nav-item" id="nav-tunnels" onclick="switchTab('tunnels')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              <span>تانل‌ها و پورت‌ها</span>
+            </div>
+            <div class="cf-nav-item" id="nav-nodes" onclick="switchTab('nodes')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+              <span>سرورها و نودها</span>
+            </div>
+          </div>
         </div>
 
-        <div class="cf-nav-item" id="nav-nodes" onclick="switchTab('nodes')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-          <span>نودها</span>
+        <!-- Group 3: System -->
+        <div>
+          <div class="nav-section-title">عملیات و مدیریت</div>
+          <div class="cf-nav-group">
+            <div class="cf-nav-item" id="nav-logs" onclick="switchTab('logs'); loadLogs();">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <span>کنسول لاگ‌های زنده</span>
+            </div>
+            <div class="cf-nav-item" id="nav-settings" onclick="switchTab('settings')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              <span>تنظیمات هسته و پنل</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div class="cf-nav-item" id="nav-ping" onclick="switchTab('ping')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-          <span>آزمایش شبکه</span>
-        </div>
-        <div class="cf-nav-item" id="nav-logs" onclick="switchTab('logs'); loadLogs();">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          <span>لاگ‌ها</span>
-        </div>
-
-        <div class="cf-nav-item" id="nav-settings" onclick="switchTab('settings')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-          <span>تنظیمات</span>
-        </div>
+      <div class="sidebar-footer">
+        <span class="num">v2.0.0 Hybrid</span>
+        <a href="/logout" style="color: var(--accent-rose); text-decoration: none; font-weight: 600;">خروج</a>
       </div>
     </aside>
 
-    <!-- -----------------------------------------------------------
+    <!-- =========================================================
          MAIN CONTENT AREA
-    ------------------------------------------------------------ -->
+    ========================================================== -->
     <main class="main-content">
       
+      <!-- Topbar Header -->
       <header class="cf-topbar">
         <div class="cf-topbar-left" id="cf-breadcrumbs">
-          <span>Hawal</span><span>/</span><span style="color: var(--cf-text-primary); font-weight: 700;">نمای کلی</span>
+          <span style="cursor: pointer;" onclick="switchTab('dashboard')">Hawal</span>
+          <span>/</span>
+          <span style="color: var(--text-primary); font-weight: 700;">نمای کلی</span>
         </div>
 
         <div class="cf-topbar-right">
-          <button class="btn btn-secondary btn-sm" onclick="restartAllAgents()" title="ری‌استارت همهٔ ایجنت‌ها و تانل‌ها">↻ ری‌استارت ایجنت‌ها</button>
-          <button class="btn btn-secondary btn-sm" onclick="openAddNodeModal()">نود جدید</button>
-          <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">تانل جدید</button>
-          <a href="/logout" class="btn btn-secondary btn-sm" style="text-decoration: none; color: #f87171;" title="خروج از حساب">خروج</a>
+          <button class="btn btn-secondary btn-sm" onclick="restartAllAgents()" title="ری‌استارت و بازیابی سلامت تمام سرویس‌ها">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span>ری‌استارت ایجنت‌ها</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openAddNodeModal()">
+            <span>+ نود جدید</span>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">
+            <span>+ تانل جدید</span>
+          </button>
         </div>
       </header>
 
+      <!-- =======================================================
+           TAB 1: DASHBOARD (OVERVIEW BENTO GRID)
+      ======================================================== -->
       <div id="tab-dashboard" class="tab-content">
         <div class="cf-body-container">
-          <div class="cf-hero-section">
-            <div>
-              <p class="eyebrow">وضعیت لحظه‌ای شبکه</p>
-              <h1 class="cf-hero-title">مدیریت سادهٔ مسیرهای شما</h1>
-              <p class="cf-hero-copy">نودها، تانل‌ها و سلامت ارتباط را در یک نگاه کنترل کنید.</p>
+          
+          <!-- Hero Title Section -->
+          <div class="hero-banner">
+            <div class="hero-title-group">
+              <h1>وضعیت لحظه‌ای زیرساخت و شبکه</h1>
+              <p>مانیتورینگ منابع سخت‌افزاری سرورها، ترافیک دوره و جریان بسته‌های تانل</p>
             </div>
-            <div class="cf-main-search-container">
-              <svg class="cf-search-icon-inside" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              <input type="text" class="cf-main-search-input" id="cf-home-search-input" placeholder="جست‌وجوی تانل یا نود" oninput="handleQuickFilter(this.value)">
-              <span class="cf-kbd-badge cf-search-kbd-inside">Ctrl K</span>
+            <div class="hero-actions">
+              <div class="search-input-box" style="width: 280px;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" class="cf-main-search-input" id="cf-home-search-input" placeholder="جست‌وجوی سریع تانل یا پورت" oninput="handleQuickFilter(this.value)">
+                <span class="kbd-badge">/</span>
+              </div>
             </div>
           </div>
 
-          <div class="cf-columns-grid">
+          <!-- BENTO ROW 1: LIVE SERVER RESOURCE NODES -->
+          <div class="server-nodes-grid" id="server-nodes-resource-container">
+            <!-- Dynamically populated with high-fidelity server cards (Iran & Kharej) -->
+          </div>
+
+          <!-- BENTO ROW 2: TRAFFIC & NETWORK KPI CARDS -->
+          <div class="traffic-kpi-grid">
             
-            <!-- Column 1: Tunnels -->
-            <div class="cf-column-card">
-              <div class="cf-column-header">
-                <div class="cf-column-title-group">
-                  <span>تانل‌ها</span>
-                  <span class="cf-counter-badge" id="col-count-tunnels">۰</span>
-                  <span class="cf-column-action-link" onclick="switchTab('tunnels')">&gt;</span>
-                </div>
-                <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">+ ساخت تانل</button>
+            <!-- KPI 1: Today Usage -->
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>مصرف ترافیک امروز</span>
+                <svg class="kpi-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               </div>
-              <div class="cf-asset-list" id="cf-col-tunnels-list">
-                <!-- Dynamic Tunnel Rows -->
+              <div class="kpi-value tabular-nums" id="kpi-today-traffic">-- MB</div>
+              <div class="kpi-sub">
+                <span style="color: var(--accent-emerald); font-weight: 600;">امروز</span>
+                <span>از بامداد تا کنون</span>
               </div>
             </div>
 
-            <!-- Column 2: Nodes & Edges -->
-            <div class="cf-column-card">
-              <div class="cf-column-header">
-                <div class="cf-column-title-group">
-                  <span>نودها</span>
-                  <span class="cf-counter-badge" id="col-count-nodes">۰</span>
-                  <span class="cf-column-action-link" onclick="switchTab('nodes')">&gt;</span>
-                </div>
-                <button class="btn btn-secondary btn-sm" onclick="openAddNodeModal()">+ نود جدید</button>
+            <!-- KPI 2: Billing Cycle Total -->
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>مصرف کل دوره جاری</span>
+                <svg class="kpi-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
               </div>
-              <div class="cf-asset-list" id="cf-col-nodes-list">
-                <!-- Dynamic Node Rows -->
+              <div class="kpi-value tabular-nums" id="col-total-traffic">-- GB</div>
+              <div class="kpi-sub-split">
+                <span style="color: var(--accent-sky);">⬇️ <span id="kpi-cycle-rx">--</span></span>
+                <span style="color: var(--accent-violet);">⬆️ <span id="kpi-cycle-tx">--</span></span>
               </div>
             </div>
 
-            <!-- Column 3: Recents & Traffic Metrics -->
-            <div class="cf-column-card">
-              <div class="cf-column-header">
-                <div class="cf-column-title-group">
-                  <span>ترافیک شبکه</span>
-                  <span class="cf-counter-badge" id="col-total-traffic">۰ MB</span>
-                </div>
-                <span class="cf-column-action-link" onclick="switchTab('ping')">جزئیات</span>
+            <!-- KPI 3: Live Throughput Speed -->
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>سرعت لحظه‌ای شبکه (Rate)</span>
+                <svg class="kpi-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               </div>
-              <div class="cf-asset-list" id="cf-col-analytics-list">
-                <!-- Dynamic Analytics Rows -->
+              <div class="kpi-value tabular-nums" id="kpi-live-rate" style="color: var(--accent-emerald);">0.00 Mbps</div>
+              <div class="kpi-sub-split">
+                <span>دریافت: <span class="tabular-nums" id="kpi-live-rx">0.00</span></span>
+                <span>ارسال: <span class="tabular-nums" id="kpi-live-tx">0.00</span></span>
               </div>
             </div>
+
+            <!-- KPI 4: Active Tunnels -->
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>وضعیت تانل‌ها</span>
+                <svg class="kpi-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              </div>
+              <div class="kpi-value tabular-nums" id="col-count-tunnels">--</div>
+              <div class="kpi-sub">
+                <span style="color: var(--accent-emerald); font-weight: 600;">🟢 پایدار</span>
+                <span id="kpi-active-engines-summary">موتورهای فعال</span>
+              </div>
+            </div>
+
           </div>
 
-          <!-- Datacenter Bandwidth & Traffic Analytics -->
-          <div class="cf-card" style="margin-bottom: 24px;">
-            <div class="cf-card-header" style="flex-wrap: wrap; gap: 12px;">
-              <div class="cf-card-title">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                <span>پایش مصرف ترافیک و پهنای باند شبکه (Network Bandwidth)</span>
+          <!-- BENTO ROW 3: INTERACTIVE BANDWIDTH & TRAFFIC ANALYTICS -->
+          <div class="chart-panel-card">
+            <div class="chart-header">
+              <div class="chart-title-wrap">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                <h2>پایش هوشمند پهنای باند و تاریخچهٔ ترافیک</h2>
               </div>
-              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <!-- Target Filter -->
-                <select id="traffic-target-select" class="form-control" style="width: auto; padding: 4px 10px; font-size: 13px; height: 32px;" onchange="loadBandwidthMetrics()">
+              
+              <div class="chart-controls">
+                <!-- Target Select -->
+                <select id="traffic-target-select" class="form-control" style="width: auto; padding: 4px 10px; font-size: 12px; height: 32px;" onchange="loadBandwidthMetrics()">
                   <option value="all:all">🌐 کل ترافیک شبکه (All Traffic)</option>
                 </select>
-                <!-- Time Range Tabs -->
-                <div class="btn-group" id="traffic-range-buttons" style="display: flex; background: #eef1f8; border-radius: 8px; padding: 3px; gap: 2px;">
-                  <button class="btn btn-sm btn-range" data-range="1h" onclick="changeBandwidthRange('1h')">1h</button>
-                  <button class="btn btn-sm btn-range" data-range="12h" onclick="changeBandwidthRange('12h')">12h</button>
-                  <button class="btn btn-sm btn-range active" data-range="24h" onclick="changeBandwidthRange('24h')">24h</button>
-                  <button class="btn btn-sm btn-range" data-range="7d" onclick="changeBandwidthRange('7d')">1w</button>
-                  <button class="btn btn-sm btn-range" data-range="30d" onclick="changeBandwidthRange('30d')">1m</button>
+
+                <!-- Range Pills -->
+                <div class="range-pills-group" id="traffic-range-buttons">
+                  <button class="btn-range-pill" data-range="1h" onclick="changeBandwidthRange('1h')">۱ ساعت</button>
+                  <button class="btn-range-pill" data-range="12h" onclick="changeBandwidthRange('12h')">۱۲ ساعت</button>
+                  <button class="btn-range-pill active" data-range="24h" onclick="changeBandwidthRange('24h')">امروز (۲۴h)</button>
+                  <button class="btn-range-pill" data-range="7d" onclick="changeBandwidthRange('7d')">۷ روز اخیر</button>
+                  <button class="btn-range-pill" data-range="30d" onclick="changeBandwidthRange('30d')">۳۰ روز اخیر</button>
                 </div>
               </div>
             </div>
 
-            <!-- Metric Summary Stats Cards -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px;">
-              <div class="metric-card">
-                <div style="font-size: 11px; color: var(--cf-text-muted);">دانلود لحظه‌ای (Inbound Rate)</div>
-                <div id="stat-curr-rate-in" style="font-size: 18px; font-weight: 700; color: #10b981; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
+            <!-- Metric Stat Chips Row -->
+            <div class="chart-metrics-row">
+              <div class="chart-stat-chip">
+                <span class="label">دانلود لحظه‌ای</span>
+                <span class="val tabular-nums" id="stat-curr-rate-in" style="color: var(--accent-emerald);">0.00 Mbps</span>
               </div>
-              <div class="metric-card">
-                <div style="font-size: 11px; color: var(--cf-text-muted);">آپلود لحظه‌ای (Outbound Rate)</div>
-                <div id="stat-curr-rate-out" style="font-size: 18px; font-weight: 700; color: #f59e0b; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
+              <div class="chart-stat-chip">
+                <span class="label">آپلود لحظه‌ای</span>
+                <span class="val tabular-nums" id="stat-curr-rate-out" style="color: var(--accent-sky);">0.00 Mbps</span>
               </div>
-              <div class="metric-card">
-                <div style="font-size: 11px; color: var(--cf-text-muted);">حجم دانلود بازه (Total In)</div>
-                <div id="stat-total-in" style="font-size: 18px; font-weight: 700; color: var(--cf-text-primary); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0 MB</div>
+              <div class="chart-stat-chip">
+                <span class="label">حجم دانلود بازه</span>
+                <span class="val tabular-nums" id="stat-total-in">0 MB</span>
               </div>
-              <div class="metric-card">
-                <div style="font-size: 11px; color: var(--cf-text-muted);">حجم آپلود بازه (Total Out)</div>
-                <div id="stat-total-out" style="font-size: 18px; font-weight: 700; color: var(--cf-text-primary); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0 MB</div>
+              <div class="chart-stat-chip">
+                <span class="label">حجم آپلود بازه</span>
+                <span class="val tabular-nums" id="stat-total-out">0 MB</span>
               </div>
-              <div class="metric-card">
-                <div style="font-size: 11px; color: var(--cf-text-muted);">اوج پهنای باند (Peak Rate)</div>
-                <div id="stat-peak-rate" style="font-size: 18px; font-weight: 700; color: #4f46e5; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
+              <div class="chart-stat-chip">
+                <span class="label">اوج پهنای باند</span>
+                <span class="val tabular-nums" id="stat-peak-rate" style="color: var(--accent-violet);">0.00 Mbps</span>
               </div>
             </div>
 
-            <!-- Chart Canvas Container -->
+            <!-- Canvas Wrapper -->
             <div class="bandwidth-chart-wrapper">
               <canvas id="bandwidthCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
               <div id="chartTooltip"></div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: var(--cf-text-muted); flex-wrap: wrap; gap: 8px;">
-              <div style="display: flex; gap: 16px;">
-                <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 3px; background: #10b981; border-radius: 2px;"></span> ترافیک دریافتی (Inbound / Download)</span>
-                <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 3px; background: #f59e0b; border-radius: 2px;"></span> ترافیک ارسالی (Outbound / Upload)</span>
+
+            <!-- Legend & Subtitle -->
+            <div class="chart-legend-row">
+              <div class="legend-items">
+                <span><span class="legend-dot" style="background: var(--accent-emerald);"></span> ترافیک ورودی (Inbound / Download)</span>
+                <span><span class="legend-dot" style="background: var(--accent-sky);"></span> ترافیک خروجی (Outbound / Upload)</span>
               </div>
-              <span id="chart-time-range-display">بازهٔ زمانی: ۲۴ ساعت گذشته</span>
+              <span id="chart-time-range-display" class="tabular-nums">بازهٔ زمانی: ۲۴ ساعت گذشته</span>
             </div>
           </div>
 
-          <div class="cf-card">
-            <div class="cf-card-header">
-              <div class="cf-card-title">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span>نقشهٔ ارتباط نودها</span>
+          <!-- BENTO ROW 4: ACTIVE TUNNELS GRID -->
+          <div class="tunnels-overview-card">
+            <div class="section-card-header">
+              <div class="section-card-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <h2>تانل‌های فعال و پورت‌های فوروارد</h2>
               </div>
-              <div class="network-chip" id="cf-rtt-indicator">در حال دریافت وضعیت شبکه</div>
+              <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">+ ساخت تانل جدید</button>
             </div>
-            <div class="topology-box" id="topology-container">
-              <!-- Topology Diagram -->
+
+            <div class="tunnels-card-grid" id="cf-col-tunnels-list">
+              <!-- Filled dynamically by renderCloudflareTunnelsColumn -->
             </div>
+          </div>
+
+          <!-- Hidden fallback elements to keep existing JS functions fully compatible -->
+          <div style="display: none;">
+            <span id="col-count-nodes">0</span>
+            <div id="cf-col-nodes-list"></div>
+            <div id="cf-col-analytics-list"></div>
+            <div id="topology-container"></div>
+            <div id="cf-rtt-indicator"></div>
           </div>
 
         </div>
       </div>
 
-      <!-- TAB: TUNNELS -->
+      <!-- =======================================================
+           TAB 2: TUNNELS MANAGEMENT
+      ======================================================== -->
       <div id="tab-tunnels" class="tab-content" style="display: none;">
         <div class="cf-body-container">
           <div class="cf-card">
             <div class="cf-card-header">
               <div class="cf-card-title">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span>Tunnels Management (مدیریت تانل‌ها و پورت‌ها)</span>
+                <span>مدیریت تانل‌ها و پورت‌های فوروارد</span>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">+ ساخت تانل جدید</button>
             </div>
@@ -238,14 +311,14 @@
                     <th>سرور مقصد (خارج)</th>
                     <th>پورت هسته</th>
                     <th>پورت‌های فوروارد</th>
-                    <th>حجم مصرفی (ترافیک زنده)</th>
-                    <th>تست پینگ و سلامت</th>
+                    <th>حجم مصرفی</th>
+                    <th>سلامت اتصال</th>
                     <th>وضعیت</th>
                     <th>عملیات</th>
                   </tr>
                 </thead>
                 <tbody id="tunnels-table-body">
-                  <!-- Dynamic Tunnels -->
+                  <!-- Dynamic Tunnels Table Rows -->
                 </tbody>
               </table>
             </div>
@@ -253,14 +326,16 @@
         </div>
       </div>
 
-      <!-- TAB: NODES -->
+      <!-- =======================================================
+           TAB 3: NODES & SERVERS
+      ======================================================== -->
       <div id="tab-nodes" class="tab-content" style="display: none;">
         <div class="cf-body-container">
           <div class="cf-card">
             <div class="cf-card-header">
               <div class="cf-card-title">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                <span>Nodes & Edge Servers (سرورهای متصل)</span>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                <span>سرورها و نودهای متصل به شبکه</span>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()">+ تعریف نود جدید</button>
             </div>
@@ -272,13 +347,13 @@
                     <th>موقعیت و کشور</th>
                     <th>آدرس IP عمومی</th>
                     <th>وضعیت</th>
-                    <th>مصرف CPU / RAM</th>
-                    <th>دستور نصب تک‌خطی</th>
+                    <th>منابع سخت‌افزاری</th>
+                    <th>دستور نصب</th>
                     <th>عملیات</th>
                   </tr>
                 </thead>
                 <tbody id="nodes-table-body">
-                  <!-- Dynamic Nodes -->
+                  <!-- Dynamic Nodes Table Rows -->
                 </tbody>
               </table>
             </div>
@@ -286,14 +361,16 @@
         </div>
       </div>
 
-      <!-- TAB: PING & DIAGNOSTICS -->
+      <!-- =======================================================
+           TAB 4: PING & DIAGNOSTICS (HIDDEN SUBSECTION)
+      ======================================================== -->
       <div id="tab-ping" class="tab-content" style="display: none;">
         <div class="cf-body-container">
           <div class="cf-card">
             <div class="cf-card-header">
               <div class="cf-card-title">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                <span>Diagnostics & Ping Suite</span>
+                <span>سنجش تاخیر و پکت‌لاس نودها</span>
               </div>
             </div>
             <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
@@ -301,24 +378,24 @@
                 <label>انتخاب نود مقصد:</label>
                 <select id="ping-target-select" class="form-control"></select>
               </div>
-              <button class="btn btn-primary" onclick="triggerPingTest()" style="height: 40px; margin-bottom: 16px;">
+              <button class="btn btn-primary" onclick="triggerPingTest()" style="height: 38px;">
                 شروع تست پینگ و پکت‌لاس
               </button>
             </div>
 
-            <div id="ping-result-container" style="display: none; margin-top: 14px;">
-              <div class="topology-box" style="justify-content: space-around;">
+            <div id="ping-result-container" style="display: none; margin-top: 16px;">
+              <div style="display: flex; justify-content: space-around; background: var(--bg-input); padding: 16px; border-radius: var(--radius-lg);">
                 <div style="text-align: center;">
-                  <div style="font-size: 11px; color: var(--cf-text-muted);">میانگین تاخیر (Avg RTT)</div>
-                  <div id="ping-res-avg" style="font-size: 24px; font-weight: 800; color: var(--cf-orange); font-family: 'JetBrains Mono';">-</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">میانگین تاخیر (Avg RTT)</div>
+                  <div id="ping-res-avg" class="tabular-nums" style="font-size: 24px; font-weight: 800; color: var(--accent-amber);">-</div>
                 </div>
                 <div style="text-align: center;">
-                  <div style="font-size: 11px; color: var(--cf-text-muted);">کمترین تاخیر</div>
-                  <div id="ping-res-min" style="font-size: 18px; font-weight: 700; color: var(--cf-text-secondary); font-family: 'JetBrains Mono';">-</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">کمترین تاخیر</div>
+                  <div id="ping-res-min" class="tabular-nums" style="font-size: 18px; font-weight: 700; color: var(--text-secondary);">-</div>
                 </div>
                 <div style="text-align: center;">
-                  <div style="font-size: 11px; color: var(--cf-text-muted);">پکت‌لاس</div>
-                  <div id="ping-res-loss" style="font-size: 24px; font-weight: 800; color: var(--cf-green); font-family: 'JetBrains Mono';">-</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">پکت‌لاس</div>
+                  <div id="ping-res-loss" class="tabular-nums" style="font-size: 24px; font-weight: 800; color: var(--accent-emerald);">-</div>
                 </div>
               </div>
             </div>
@@ -326,50 +403,72 @@
         </div>
       </div>
 
-      <!-- TAB: SETTINGS -->
+      <!-- =======================================================
+           TAB 5: LIVE LOGS CONSOLE
+      ======================================================== -->
       <div id="tab-logs" class="tab-content" style="display: none;">
-        <div class="cf-body-container"><div class="cf-card">
-          <div class="cf-card-header"><div class="cf-card-title"><span>لاگ نودها و تانل‌ها</span></div><div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm" onclick="copyVisibleLogs()">کپی</button><button class="btn btn-danger btn-sm" onclick="clearVisibleLogs()">پاک‌سازی</button><button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ بروزرسانی</button></div></div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-            <select id="logs-node" class="form-control" onchange="loadLogs()" style="max-width:260px;"></select>
-            <select id="logs-source" class="form-control" onchange="loadLogs()" style="max-width:320px;"><option value="">همهٔ لاگ‌ها</option><option value="agent">لاگ Agent</option></select>
+        <div class="cf-body-container">
+          <div class="cf-card">
+            <div class="cf-card-header">
+              <div class="cf-card-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <span>کنسول لاگ نودها و سرویس‌های تانل</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" onclick="copyVisibleLogs()">کپی کامل لاگ</button>
+                <button class="btn btn-danger btn-sm" onclick="clearVisibleLogs()">پاک‌سازی</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ بروزرسانی</button>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+              <select id="logs-node" class="form-control" onchange="loadLogs()" style="max-width: 260px;"></select>
+              <select id="logs-source" class="form-control" onchange="loadLogs()" style="max-width: 320px;">
+                <option value="">همهٔ لاگ‌ها</option>
+                <option value="agent">لاگ Agent</option>
+              </select>
+            </div>
+            
+            <div id="logs-meta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"></div>
+            <pre id="logs-output" class="cmd-box" style="min-height: 440px; max-height: 70vh; overflow: auto; white-space: pre-wrap; direction: ltr; text-align: left;"></pre>
           </div>
-          <div id="logs-meta" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"></div>
-          <pre id="logs-output" class="cmd-box" style="min-height:420px;max-height:65vh;overflow:auto;white-space:pre-wrap;direction:ltr;text-align:left;"></pre>
-        </div></div>
+        </div>
       </div>
 
-      <!-- TAB: SETTINGS -->
+      <!-- =======================================================
+           TAB 6: SETTINGS
+      ======================================================== -->
       <div id="tab-settings" class="tab-content" style="display: none;">
         <div class="cf-body-container">
           <div class="cf-card">
             <div class="cf-card-header">
               <div class="cf-card-title">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span>Global Tunnel Configurations</span>
+                <span>تنظیمات عمومی پنل و زیرساخت</span>
               </div>
             </div>
+            
             <form id="form-settings" onsubmit="handleSaveSettings(event)">
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                 <div class="form-group">
                   <label>پورت وب پنل هه‌واڵ:</label>
                   <input type="number" id="setting-panel-port" class="form-control" value="9090" required>
                 </div>
                 <div class="form-group">
-                  <label>آدرس عمومی پنل برای نصب نودها:</label>
+                  <label>آدرس عمومی پنل برای اتصال نودها:</label>
                   <input type="url" id="setting-public-panel-url" class="form-control" placeholder="https://panel.example.com">
                 </div>
                 <div class="form-group">
                   <label>پروتکل پیش‌فرض تانل:</label>
                   <select id="setting-default-transport" class="form-control">
                     <option value="ws" selected>WebSocket</option>
-                    <option value="tcp">TCP</option>
+                    <option value="tcp">TCP Direct</option>
                     <option value="tcpmux">TCP Mux</option>
-                    <option value="tls">TLS</option>
+                    <option value="tls">TLS Encrypted</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>تعداد کانکشن MUX:</label>
+                  <label>تعداد کانکشن پیش‌فرض MUX:</label>
                   <input type="number" id="setting-default-mux" class="form-control" value="8" required>
                 </div>
                 <div class="form-group">
@@ -377,8 +476,8 @@
                   <input type="number" id="setting-mtu-clamp" class="form-control" value="1360" required>
                 </div>
               </div>
-              <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-                <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+              <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary">ذخیره تنظیمات</button>
               </div>
             </form>
           </div>
@@ -388,27 +487,30 @@
     </main>
   </div>
 
+  <!-- =========================================================
+       MODALS
+  ========================================================== -->
   <!-- MODAL: ADD NODE -->
   <div class="modal-overlay" id="modal-add-node">
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">افزودن نود جدید به هه‌واڵ</div>
+        <div class="modal-title">افزودن نود جدید به شبکه</div>
         <button class="modal-close" onclick="closeModal('modal-add-node')">&times;</button>
       </div>
       <form id="form-add-node" onsubmit="handleAddNode(event)">
         <div class="form-group">
           <label>نام نمایشی نود:</label>
-          <input type="text" id="node-name" class="form-control" placeholder="مثلاً: Iran Hub یا Germany Core" required>
+          <input type="text" id="node-name" class="form-control" placeholder="مثلاً: Iran Gateway یا Amsterdam Exit" required>
         </div>
         <div class="form-group">
           <label>آدرس IP عمومی نود:</label>
-          <input type="text" id="node-ip" class="form-control" placeholder="5.202.7.123" required>
+          <input type="text" id="node-ip" class="form-control" placeholder="5.202.5.134" required>
         </div>
         <div class="form-group">
           <label>نقش سرور در تانل:</label>
           <select id="node-role" class="form-control">
-            <option value="iran">🇮🇷 سرور ایران (مبدا یا لیسنر)</option>
-            <option value="kharej" selected>🌐 سرور خارج (نود متصل‌شونده)</option>
+            <option value="iran">🇮🇷 سرور ایران (Gateway / Listener)</option>
+            <option value="kharej" selected>🌐 سرور خارج (Exit Node / Connecter)</option>
           </select>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -427,8 +529,8 @@
         <button class="modal-close" onclick="closeModal('modal-install-code')">&times;</button>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-        <button class="btn btn-primary btn-sm" id="btn-mode-native" onclick="switchInstallerMode('native')">🚀 Systemd</button>
-        <button class="btn btn-secondary btn-sm" id="btn-mode-docker" onclick="switchInstallerMode('docker')">🐳 Docker</button>
+        <button class="btn btn-primary btn-sm" id="btn-mode-native" onclick="switchInstallerMode('native')">🚀 Systemd Native</button>
+        <button class="btn btn-secondary btn-sm" id="btn-mode-docker" onclick="switchInstallerMode('docker')">🐳 Docker Container</button>
       </div>
       <div class="cmd-box">
         <code id="install-command-text"></code>
@@ -442,39 +544,47 @@
 
   <!-- MODAL: ADD TUNNEL -->
   <div class="modal-overlay" id="modal-add-tunnel">
-    <div class="modal">
+    <div class="modal" style="max-width: 580px;">
       <div class="modal-header">
-        <div class="modal-title">تانل جدید</div>
+        <div class="modal-title">ساخت تانل جدید</div>
         <button class="modal-close" onclick="closeModal('modal-add-tunnel')">&times;</button>
       </div>
       <form id="form-add-tunnel" onsubmit="handleAddTunnel(event)">
         <div class="form-group">
           <label>نام تانل:</label>
-          <input type="text" id="tunnel-name" class="form-control" placeholder="مثلاً: Iran-Germany Master Tunnel" required>
+          <input type="text" id="tunnel-name" class="form-control" placeholder="مثلاً: IR-NL-Mesh" required>
         </div>
 
         <div class="form-group">
-          <label>انتخاب هستهٔ تانل</label>
-          <div class="engine-selector-grid">
-            <div class="engine-card active" id="card-engine-hawal" onclick="selectEngine('hawal')">
-              <span class="engine-title">Hawal</span>
-              <span class="engine-desc">سریع، پایدار و مناسب استفادهٔ روزانه</span>
-              <span class="engine-meta">پیشنهادی</span>
+          <label>موتور و هسته تانل:</label>
+          <div class="engine-select-grid">
+            <div class="engine-option-card active" id="card-engine-hawal" onclick="selectEngine('hawal')">
+              <div class="icon">⚡</div>
+              <div class="info">
+                <span class="title">Hawal Core v2</span>
+                <span class="desc">Stealth Multi-Stream فوق سریع</span>
+              </div>
             </div>
-            <div class="engine-card" id="card-engine-paqet" onclick="selectEngine('paqet')">
-              <span class="engine-title">Paqet</span>
-              <span class="engine-desc">مسیر مقاوم در برابر DPI و اختلال شدید</span>
-              <span class="engine-meta">ضد فیلتر</span>
+            <div class="engine-option-card" id="card-engine-paqet" onclick="selectEngine('paqet')">
+              <div class="icon">🛡️</div>
+              <div class="info">
+                <span class="title">Paqet Raw KCP</span>
+                <span class="desc">ضد فیلتر شدید با Raw Socket</span>
+              </div>
             </div>
-            <div class="engine-card" id="card-engine-backhaul" onclick="selectEngine('backhaul')">
-              <span class="engine-title">Backhaul</span>
-              <span class="engine-desc">سازگار با WebSocket، TCP و TLS</span>
-              <span class="engine-meta">سازگار</span>
+            <div class="engine-option-card" id="card-engine-backhaul" onclick="selectEngine('backhaul')">
+              <div class="icon">🚀</div>
+              <div class="info">
+                <span class="title">Backhaul</span>
+                <span class="desc">استاندارد TCP/WS/Mux</span>
+              </div>
             </div>
-            <div class="engine-card" id="card-engine-gost" onclick="selectEngine('gost')">
-              <span class="engine-title">GOST</span>
-              <span class="engine-desc">Relay رمزنگاری‌شده برای TCP و UDP؛ مناسب QUIC و Hysteria</span>
-              <span class="engine-meta">مسیر پشتیبان</span>
+            <div class="engine-option-card" id="card-engine-gost" onclick="selectEngine('gost')">
+              <div class="icon">👻</div>
+              <div class="info">
+                <span class="title">GOST v3</span>
+                <span class="desc">TLS Relay و رمزنگاری چندگانه</span>
+              </div>
             </div>
           </div>
           <input type="hidden" id="tunnel-core-type" value="hawal">
@@ -493,11 +603,11 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
-            <label>پورت ارتباط هسته</label>
+            <label>پورت ارتباط هسته:</label>
             <input type="number" id="tunnel-core-port" class="form-control" value="3095" required>
           </div>
           <div class="form-group">
-            <label>روش انتقال</label>
+            <label>روش انتقال (Transport):</label>
             <select id="tunnel-transport" class="form-control">
               <option value="stealth" selected>⚡ Stealth Multi-Stream</option>
             </select>
@@ -505,28 +615,29 @@
         </div>
 
         <div class="form-group">
-          <label>پورت‌های عبوری</label>
-          <div class="port-chip-container" id="port-chip-list"></div>
+          <label>پورت‌های عبوری (Forward Ports):</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-bottom: 6px;" id="port-chip-list"></div>
 
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <input type="number" id="custom-port-input" class="form-control" placeholder="شماره پورت (مثلاً: 443 یا 8080)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPortChip(this.value);this.value='';}">
+          <div style="display: flex; gap: 8px;">
+            <input type="number" id="custom-port-input" class="form-control" placeholder="پورت دلخواه (مثلاً: 443 یا 2088)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPortChip(this.value);this.value='';}">
             <button type="button" class="btn btn-secondary" onclick="addPortChip(document.getElementById('custom-port-input').value); document.getElementById('custom-port-input').value='';" style="white-space: nowrap;">
               + افزودن
             </button>
           </div>
 
-          <div class="preset-chip-list">
-            <span class="preset-chip" onclick="addPortChip(443)">+ 443 (Reality)</span>
-            <span class="preset-chip" onclick="addPortChip(2083)">+ 2083 (MTProto)</span>
-            <span class="preset-chip" onclick="addPortChip(8080)">+ 8080 (V2Ray)</span>
-            <span class="preset-chip" onclick="addPortChip(8443)">+ 8443 (Xray)</span>
-            <span class="preset-chip" onclick="addPortChip(80)">+ 80 (HTTP)</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(443)">+ 443</span>
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(2083)">+ 2083</span>
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(2087)">+ 2087</span>
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(2088)">+ 2088</span>
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(8080)">+ 8080</span>
+            <span class="btn btn-secondary btn-sm" onclick="addPortChip(36489)">+ 36489</span>
           </div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-tunnel')">انصراف</button>
-          <button type="submit" class="btn btn-primary">ایجاد تانل</button>
+          <button type="submit" class="btn btn-primary">ایجاد و استقرار تانل</button>
         </div>
       </form>
     </div>
@@ -534,7 +645,7 @@
 
   <!-- MODAL: EDIT TUNNEL -->
   <div class="modal-overlay" id="modal-edit-tunnel">
-    <div class="modal">
+    <div class="modal" style="max-width: 580px;">
       <div class="modal-header">
         <div class="modal-title">ویرایش تانل و پورت‌ها</div>
         <button class="modal-close" onclick="closeModal('modal-edit-tunnel')">&times;</button>
@@ -550,7 +661,7 @@
         <div class="form-group">
           <label>موتور و هسته تانل:</label>
           <select id="edit-tunnel-core-type" class="form-control" onchange="handleEditCoreTypeChange()">
-            <option value="hawal">⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go)</option>
+            <option value="hawal">⚡ هسته هه‌واڵ (Hawal Stealth Core - Go)</option>
             <option value="paqet">🛡️ هسته ضد فیلتر پکت (Paqet Raw Packet + KCP)</option>
             <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex)</option>
             <option value="gost">👻 هسته GOST v3 (Encrypted Relay)</option>
@@ -569,22 +680,23 @@
         </div>
 
         <div class="form-group">
-          <label>پورت‌های فوروارد شده:</label>
-          <div class="port-chip-container" id="edit-port-chip-list"></div>
+          <label>پورت‌های عبوری فوروارد:</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-bottom: 6px;" id="edit-port-chip-list"></div>
 
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
+          <div style="display: flex; gap: 8px;">
             <input type="number" id="edit-custom-port-input" class="form-control" placeholder="شماره پورت" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditPortChip(this.value);this.value='';}">
             <button type="button" class="btn btn-secondary" onclick="addEditPortChip(document.getElementById('edit-custom-port-input').value); document.getElementById('edit-custom-port-input').value='';" style="white-space: nowrap;">
               + افزودن
             </button>
           </div>
 
-          <div class="preset-chip-list">
-            <span class="preset-chip" onclick="addEditPortChip(443)">+ 443 (Reality)</span>
-            <span class="preset-chip" onclick="addEditPortChip(2083)">+ 2083 (MTProto)</span>
-            <span class="preset-chip" onclick="addEditPortChip(8080)">+ 8080 (V2Ray)</span>
-            <span class="preset-chip" onclick="addEditPortChip(8443)">+ 8443 (Xray)</span>
-            <span class="preset-chip" onclick="addEditPortChip(80)">+ 80 (HTTP)</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(443)">+ 443</span>
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(2083)">+ 2083</span>
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(2087)">+ 2087</span>
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(2088)">+ 2088</span>
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(8080)">+ 8080</span>
+            <span class="btn btn-secondary btn-sm" onclick="addEditPortChip(36489)">+ 36489</span>
           </div>
         </div>
 
@@ -604,7 +716,7 @@
         <button class="modal-close" onclick="closeModal('modal-tunnel-docker')">&times;</button>
       </div>
       <div class="cmd-box">
-        <pre id="docker-compose-text" style="color: var(--cf-orange); font-size: 11px; max-height: 200px; overflow-y: auto;"></pre>
+        <pre id="docker-compose-text" style="color: var(--accent-sky); font-size: 11px; max-height: 200px; overflow-y: auto;"></pre>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
         <button class="btn btn-primary btn-sm" onclick="copyDockerCompose()">کپی فایل</button>
@@ -616,6 +728,6 @@
   <!-- FLOATING TOASTS -->
   <div id="toast-container"></div>
 
-  <script src="/static/js/app.js?v=20260902-logactions"></script>
+  <script src="/static/js/app.js?v=20260929-antislop"></script>
 </body>
 </html>

@@ -385,19 +385,141 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+function formatUptime(seconds) {
+  if (!seconds || seconds <= 0) return 'به تازگی فعال شده';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days} روز و ${hours} ساعت`;
+  if (hours > 0) return `${hours} ساعت و ${mins} دقیقه`;
+  return `${mins} دقیقه`;
+}
+
+function renderServerResourceNodes() {
+  const container = document.getElementById('server-nodes-resource-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (STATE.nodes.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 28px; text-align: center; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: var(--radius-xl); color: var(--text-muted);">
+        <p style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">هنوز هیچ سروری به شبکه متصل نشده است</p>
+        <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()" style="margin-top: 12px;">+ تعریف نود سرور</button>
+      </div>
+    `;
+    return;
+  }
+
+  STATE.nodes.forEach(node => {
+    const isOnline = node.status === 'online';
+    const isIran = node.role === 'iran';
+    const roleText = isIran ? 'سرور ایران (Gateway)' : 'سرور خارج (Exit Node)';
+    const roleClass = isIran ? 'role-iran' : 'role-kharej';
+
+    const cpu = Math.min(100, Math.max(0, node.cpu_percent || 0));
+    const ramU = node.ram_used_mb || 0;
+    const ramT = Math.max(1, node.ram_total_mb || 1024);
+    const ramPct = Math.min(100, Math.round((ramU / ramT) * 100));
+
+    let cpuColorClass = 'fill-emerald';
+    if (cpu > 80) cpuColorClass = 'fill-rose';
+    else if (cpu > 50) cpuColorClass = 'fill-amber';
+
+    let ramColorClass = 'fill-sky';
+    if (ramPct > 85) ramColorClass = 'fill-rose';
+    else if (ramPct > 65) ramColorClass = 'fill-amber';
+
+    const uptimeStr = formatUptime(node.uptime_seconds);
+
+    const card = document.createElement('div');
+    card.className = 'server-node-card';
+    card.innerHTML = `
+      <div class="node-card-top">
+        <div class="node-identity">
+          <div class="node-flag-box">${node.flag || (isIran ? '🇮🇷' : '🌐')}</div>
+          <div class="node-title-wrap">
+            <div class="node-name">
+              <span>${node.name}</span>
+              <span class="node-role-pill ${roleClass}">${roleText}</span>
+            </div>
+            <div class="node-ip-tag" onclick="navigator.clipboard.writeText('${node.ip}'); showToast('آدرس IP کپی شد', 'success')" title="کلیک برای کپی آدرس IP">
+              <span>${node.ip}</span>
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            </div>
+          </div>
+        </div>
+        <div class="status-pill ${isOnline ? 'online' : 'offline'}">
+          <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+          <span>${isOnline ? 'آنلاین' : 'آفلاین'}</span>
+        </div>
+      </div>
+
+      <div class="node-meters-grid">
+        <div class="meter-item">
+          <div class="meter-header">
+            <span>بار پردازنده (CPU)</span>
+            <span class="meter-val tabular-nums">${cpu.toFixed(1)}%</span>
+          </div>
+          <div class="meter-bar-track">
+            <div class="meter-bar-fill ${cpuColorClass}" style="width: ${cpu}%;"></div>
+          </div>
+        </div>
+
+        <div class="meter-item">
+          <div class="meter-header">
+            <span>حافظه رم (RAM)</span>
+            <span class="meter-val tabular-nums">${ramU} / ${ramT} MB (${ramPct}%)</span>
+          </div>
+          <div class="meter-bar-track">
+            <div class="meter-bar-fill ${ramColorClass}" style="width: ${ramPct}%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="node-card-footer">
+        <div class="uptime-badge">
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>آپتایم: <span class="tabular-nums">${uptimeStr}</span></span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="showInstallModal('${node.token}', '${node.role}', '${node.name}')">
+          اسکریپت اتصال
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
 function renderDashboard() {
   const colCountTunnels = document.getElementById('col-count-tunnels');
   const colCountNodes = document.getElementById('col-count-nodes');
   const colTotalTraffic = document.getElementById('col-total-traffic');
+  const kpiCycleRx = document.getElementById('kpi-cycle-rx');
+  const kpiCycleTx = document.getElementById('kpi-cycle-tx');
+  const kpiActiveEngines = document.getElementById('kpi-active-engines-summary');
 
-  if (colCountTunnels) colCountTunnels.innerText = STATE.tunnels.length;
+  if (colCountTunnels) colCountTunnels.innerText = `${STATE.tunnels.length} تانل فعال`;
   if (colCountNodes) colCountNodes.innerText = STATE.nodes.length;
 
   const totalIn = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_in || 0), 0);
   const totalOut = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_out || 0), 0);
   const totalNetworkTraffic = totalIn + totalOut;
-  if (colTotalTraffic) colTotalTraffic.innerText = formatBytes(totalNetworkTraffic);
 
+  if (colTotalTraffic) colTotalTraffic.innerText = formatBytes(totalNetworkTraffic);
+  if (kpiCycleRx) kpiCycleRx.innerText = formatBytes(totalIn);
+  if (kpiCycleTx) kpiCycleTx.innerText = formatBytes(totalOut);
+
+  if (kpiActiveEngines) {
+    const engines = [...new Set(STATE.tunnels.map(t => {
+      if (t.core_type === 'paqet') return 'Paqet Raw';
+      if (t.core_type === 'hawal') return 'Stealth Core';
+      if (t.core_type === 'gost') return 'GOST';
+      return 'Backhaul';
+    }))];
+    kpiActiveEngines.innerText = engines.length > 0 ? engines.join(', ') : 'بدون تانل';
+  }
+
+  renderServerResourceNodes();
   renderCloudflareTunnelsColumn();
   renderCloudflareNodesColumn();
   renderCloudflareAnalyticsColumn(totalIn, totalOut);
@@ -413,34 +535,58 @@ function renderCloudflareTunnelsColumn() {
   container.innerHTML = '';
 
   if (STATE.tunnels.length === 0) {
-    container.innerHTML = '<div style="padding: 16px; color: var(--cf-text-muted); font-size: 13px;">هیچ تانلی ایجاد نشده است.</div>';
+    container.innerHTML = '<div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">هیچ تانلی ایجاد نشده است.</div>';
     return;
   }
 
   STATE.tunnels.forEach(tun => {
-    const row = document.createElement('div');
-    row.className = 'cf-asset-row';
-    row.onclick = () => switchTab('tunnels');
+    const card = document.createElement('div');
+    card.className = 'tunnel-item-card';
+    card.onclick = () => switchTab('tunnels');
 
-    let engineLabel = '🚀 Backhaul';
-    if (tun.core_type === 'paqet') engineLabel = '🛡️ Paqet KCP';
-    else if (tun.core_type === 'hawal') engineLabel = '⚡ Stealth Core';
-    else if (tun.core_type === 'gost') engineLabel = '👻 GOST Relay';
+    let engineLabel = 'Backhaul';
+    let engineClass = 'engine-backhaul';
+    if (tun.core_type === 'paqet') {
+      engineLabel = 'Paqet Raw KCP';
+      engineClass = 'engine-paqet';
+    } else if (tun.core_type === 'hawal') {
+      engineLabel = 'Stealth Core v2';
+      engineClass = 'engine-hawal';
+    } else if (tun.core_type === 'gost') {
+      engineLabel = 'GOST Relay';
+      engineClass = 'engine-gost';
+    }
+
     const totalBytes = (tun.bytes_in || 0) + (tun.bytes_out || 0);
 
-    row.innerHTML = `
-      <div class="cf-asset-left">
-        <svg class="cf-asset-icon" style="color: var(--cf-orange);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-        <div>
-          <div class="cf-asset-title">${tun.name}</div>
-          <div class="cf-asset-subtitle">
-            ${engineLabel} • پورت ${tun.core_port} • ${formatBytes(totalBytes)}
-          </div>
+    let portsStr = 'پورت هسته فقط';
+    try {
+      const p = typeof tun.ports_json === 'string' ? JSON.parse(tun.ports_json) : (tun.ports_json || []);
+      if (Array.isArray(p) && p.length > 0) {
+        portsStr = p.map(item => item.split('=')[0]).join(', ');
+      }
+    } catch(e) {}
+
+    card.innerHTML = `
+      <div class="tun-card-header">
+        <div class="tun-name-wrap">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--accent-primary);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <span class="tun-name">${tun.name}</span>
         </div>
+        <span class="engine-pill ${engineClass}">${engineLabel}</span>
       </div>
-      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+      <div class="tun-ports-box">
+        <span style="color: var(--text-muted);">پورت‌های فوروارد:</span>
+        <span class="tabular-nums" style="color: var(--accent-sky); font-weight: 600;">${portsStr}</span>
+      </div>
+
+      <div class="tun-card-footer">
+        <span>پورت هسته: <span class="tabular-nums">${tun.core_port}</span></span>
+        <span class="tabular-nums" style="font-weight: 600; color: var(--text-primary);">${formatBytes(totalBytes)}</span>
+      </div>
     `;
-    container.appendChild(row);
+    container.appendChild(card);
   });
 }
 
@@ -550,7 +696,7 @@ function changeBandwidthRange(range) {
   STATE.bandwidthRange = range;
   const container = document.getElementById('traffic-range-buttons');
   if (container) {
-    container.querySelectorAll('.btn-range').forEach(btn => {
+    container.querySelectorAll('.btn-range, .btn-range-pill').forEach(btn => {
       if (btn.dataset.range === range) btn.classList.add('active');
       else btn.classList.remove('active');
     });
@@ -559,7 +705,7 @@ function changeBandwidthRange(range) {
   const rangeLabels = {
     '1h': 'بازهٔ زمانی: ۱ ساعت گذشته',
     '12h': 'بازهٔ زمانی: ۱۲ ساعت گذشته',
-    '24h': 'بازهٔ زمانی: ۲۴ ساعت گذشته',
+    '24h': 'بازهٔ زمانی: امروز (۲۴ ساعت گذشته)',
     '7d': 'بازهٔ زمانی: ۷ روز گذشته (۱ هفته)',
     '30d': 'بازهٔ زمانی: ۳۰ روز گذشته (۱ ماه)'
   };
@@ -592,13 +738,32 @@ async function loadBandwidthMetrics() {
     const totOut = document.getElementById('stat-total-out');
     const peakEl = document.getElementById('stat-peak-rate');
 
-    if (currIn) currIn.innerText = `${(summ.current_rate_in_mbps || 0).toFixed(2)} Mbps`;
-    if (currOut) currOut.innerText = `${(summ.current_rate_out_mbps || 0).toFixed(2)} Mbps`;
+    const rxMbps = summ.current_rate_in_mbps || 0;
+    const txMbps = summ.current_rate_out_mbps || 0;
+    const totalMbps = rxMbps + txMbps;
+
+    if (currIn) currIn.innerText = `${rxMbps.toFixed(2)} Mbps`;
+    if (currOut) currOut.innerText = `${txMbps.toFixed(2)} Mbps`;
     if (totIn) totIn.innerText = formatBytes(summ.total_bytes_in || 0);
     if (totOut) totOut.innerText = formatBytes(summ.total_bytes_out || 0);
     if (peakEl) {
       const peakVal = Math.max(summ.peak_rate_in_mbps || 0, summ.peak_rate_out_mbps || 0);
       peakEl.innerText = `${peakVal.toFixed(2)} Mbps`;
+    }
+
+    // Update Overview Top KPI cards
+    const kpiLiveRate = document.getElementById('kpi-live-rate');
+    const kpiLiveRx = document.getElementById('kpi-live-rx');
+    const kpiLiveTx = document.getElementById('kpi-live-tx');
+    const kpiToday = document.getElementById('kpi-today-traffic');
+
+    if (kpiLiveRate) kpiLiveRate.innerText = `${totalMbps.toFixed(2)} Mbps`;
+    if (kpiLiveRx) kpiLiveRx.innerText = `${rxMbps.toFixed(2)} Mbps`;
+    if (kpiLiveTx) kpiLiveTx.innerText = `${txMbps.toFixed(2)} Mbps`;
+
+    if (kpiToday) {
+      const dayBytes = (summ.total_bytes_in || 0) + (summ.total_bytes_out || 0);
+      kpiToday.innerText = formatBytes(dayBytes);
     }
 
     renderBandwidthChart(data);
