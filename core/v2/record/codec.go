@@ -87,7 +87,7 @@ func New(sendAEAD, receiveAEAD cipher.AEAD, sendNonce, receiveNonce []byte, tran
 	if len(sendNonce) != sendAEAD.NonceSize() || len(receiveNonce) != receiveAEAD.NonceSize() || len(sendNonce) < 8 {
 		return nil, errors.New("record: invalid base nonce size")
 	}
-	if options.MaxPlaintext < headerSize || options.MaxPlaintext > math.MaxUint32 {
+	if options.MaxPlaintext < headerSize || int64(options.MaxPlaintext) > math.MaxUint32 {
 		return nil, errors.New("record: invalid plaintext limit")
 	}
 	if options.MaxRecordsPerKey == 0 {
