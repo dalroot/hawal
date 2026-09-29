@@ -15,8 +15,8 @@ import (
 	"github.com/dalroot/hawal/core/v2/engine"
 )
 
-const (
-	Version = "2.0.0-hybrid"
+var (
+	Version = "2.3.0"
 )
 
 type ConfigFile struct {
@@ -46,7 +46,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("Hawal Stealth Core (هه‌واڵ) v%s (Hybrid Backhaul+GOST+Paqet)\n", Version)
+		fmt.Printf("Hawal Stealth Core (هه‌واڵ) v%s (Hybrid Backhaul+GOST+Paqet)\n", strings.TrimPrefix(Version, "v"))
 		return
 	}
 

@@ -1,0 +1,54 @@
+name: "🐛 Bug Report"
+description: "File a reproducible bug report to help improve Hawal Tunnel"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please ensure that you do not paste sensitive production tokens, passwords, or private domain names in logs.
+  - type: dropdown
+    id: core
+    attributes:
+      label: Tunnel Core
+      description: Which tunnel core is affected?
+      options:
+        - "Hawal Core v2 (Hybrid / TLS / RawPaq)"
+        - "Hawal Stealth Core v1"
+        - "Backhaul"
+        - "Paqet"
+        - "GOST v3"
+        - "Web Panel / UI / API"
+        - "Agent / CLI (hawal)"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating System & Environment
+      description: e.g. Ubuntu 22.04 LTS / Debian 12 (Kernel 6.1) on Iran VPS + Abroad VPS
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can maintainers reproduce this issue?
+      placeholder: |
+        1. Install panel on Iran server
+        2. Connect foreign node with agent
+        3. Create tunnel with core ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized Logs
+      description: Output of `hawal logs` or `journalctl -u hawal-panel -n 50` (remove sensitive tokens)
+      render: shell

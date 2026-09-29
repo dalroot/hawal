@@ -14,5 +14,6 @@ venv/
 .nexustunnel/
 /tmp/
 .DS_Store
+*.bak
 
 .skills/

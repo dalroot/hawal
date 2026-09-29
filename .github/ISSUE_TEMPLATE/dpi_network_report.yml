@@ -1,0 +1,40 @@
+name: "🔬 DPI & Censorship Observation Report"
+description: "Submit reproducible traffic filtering or DPI observations between owned test nodes"
+labels: ["dpi-research", "evidence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please refer to `docs/research/dpi-2026/evidence-ledger.md` and `owned-lab-test-matrix.md`.
+        **Important:** Active network tests must only be run between endpoints owned and controlled by you. Do not test against unrelated third-party infrastructure.
+  - type: input
+    id: scope
+    attributes:
+      label: Test Scope
+      description: ISP / Datacenter / ASN pair / Direction (e.g., MCI to Hetzner, Outbound TCP)
+    validations:
+      required: true
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Confidence Level
+      options:
+        - "Observed (Verified with synchronized two-sided packet capture)"
+        - "Inference (Plausible explanation based on multiple observations)"
+        - "Experimental Hypothesis (Needs controlled isolated verification)"
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: Observed Wire Behavior
+      description: Specific symptoms (e.g. RST injection after TLS ClientHello, silent drop of raw UDP, KCP recovery behavior).
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Controlled Reproduction Matrix
+      description: Exact commands, payload sizes, port numbers, and capture hashes.
+    validations:
+      required: true

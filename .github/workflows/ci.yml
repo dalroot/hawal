@@ -1,0 +1,56 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-go:
+    name: Test Hawal Core (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Run Core v2 Unit & Fuzz Tests
+        run: |
+          cd core
+          go test -v -race ./v2/...
+
+      - name: Build Core v2 Binary (Linux amd64)
+        run: |
+          cd core
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o hawal-core-amd64 ./v2/cmd/hawal-core
+
+      - name: Build Core v2 Binary (Linux arm64)
+        run: |
+          cd core
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o hawal-core-arm64 ./v2/cmd/hawal-core
+
+  test-python:
+    name: Lint & Test Panel/Agent (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Python Syntax & Flake8 Lint
+        run: |
+          python -m py_compile server.py app/*.py agent/*.py
+          python -m pip install --upgrade pip
+          pip install flake8
+          # Stop build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,docs,ui-v2

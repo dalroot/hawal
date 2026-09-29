@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Extract Tag Version
+        id: vars
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build Binaries (Multi-Arch)
+        run: |
+          mkdir -p dist
+          TAG="${{ steps.vars.outputs.tag }}"
+          
+          # Linux AMD64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -C core -trimpath -ldflags="-s -w -X main.Version=${TAG}" \
+            -o ../dist/hawal-core-linux-amd64 ./v2/cmd/hawal-core
+
+          # Linux ARM64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+            -C core -trimpath -ldflags="-s -w -X main.Version=${TAG}" \
+            -o ../dist/hawal-core-linux-arm64 ./v2/cmd/hawal-core
+
+          # Linux 386
+          CGO_ENABLED=0 GOOS=linux GOARCH=386 go build \
+            -C core -trimpath -ldflags="-s -w -X main.Version=${TAG}" \
+            -o ../dist/hawal-core-linux-386 ./v2/cmd/hawal-core
+
+          # Linux ARMv7
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build \
+            -C core -trimpath -ldflags="-s -w -X main.Version=${TAG}" \
+            -o ../dist/hawal-core-linux-armv7 ./v2/cmd/hawal-core
+
+          cd dist
+          sha256sum hawal-core-* > checksums.txt
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/hawal-core-linux-amd64
+            dist/hawal-core-linux-arm64
+            dist/hawal-core-linux-386
+            dist/hawal-core-linux-armv7
+            dist/checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
