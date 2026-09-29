@@ -4,13 +4,13 @@ def generate_hawal_core_server_config(tunnel_dict):
     """
     Generates JSON configuration dictionary for Hawal Core (Server Mode)
     """
-    carrier = tunnel_dict.get("transport", "tcp").lower()
-    if carrier in ("tls", "ws"):
-        carrier = "tls"
-    elif carrier in ("kcp", "rawpaq"):
+    carrier = tunnel_dict.get("transport", "tls").lower()
+    if carrier in ("kcp", "rawpaq"):
         carrier = "rawpaq"
-    else:
+    elif carrier == "tcp":
         carrier = "tcp"
+    else:
+        carrier = "tls"
 
     return {
         "mode": "server",
@@ -28,13 +28,13 @@ def generate_hawal_core_client_config(tunnel_dict, server_ip):
     """
     Generates JSON configuration dictionary for Hawal Core (Client Mode)
     """
-    carrier = tunnel_dict.get("transport", "tcp").lower()
-    if carrier in ("tls", "ws"):
-        carrier = "tls"
-    elif carrier in ("kcp", "rawpaq"):
+    carrier = tunnel_dict.get("transport", "tls").lower()
+    if carrier in ("kcp", "rawpaq"):
         carrier = "rawpaq"
-    else:
+    elif carrier == "tcp":
         carrier = "tcp"
+    else:
+        carrier = "tls"
 
     return {
         "mode": "client",

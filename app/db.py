@@ -443,8 +443,14 @@ def get_traffic_history(target_type="all", target_id=None, time_range="24h"):
             where_clauses.append("target_id = ?")
             params.append(target_id)
     elif target_type == "all":
-        # Default aggregate is node level (complete server footprint)
-        where_clauses.append("target_type = 'node'")
+        # Aggregate based on Iran gateway node to represent overall network transit without double counting
+        with get_db() as conn:
+            gateway = conn.execute("SELECT id FROM nodes WHERE role = 'iran' LIMIT 1").fetchone()
+        if gateway:
+            where_clauses.append("target_type = 'node' AND target_id = ?")
+            params.append(gateway["id"])
+        else:
+            where_clauses.append("target_type = 'node'")
 
     where_sql = " AND ".join(where_clauses)
 

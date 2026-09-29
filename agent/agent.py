@@ -191,19 +191,28 @@ class HawalAgent:
         return metrics
 
     def ensure_hawal_core_binary(self):
+        is_v2 = False
         if os.path.exists(HAWAL_CORE_BIN) and os.path.isfile(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
+            try:
+                out = subprocess.check_output([HAWAL_CORE_BIN, "-version"], text=True, timeout=2)
+                if "v2.0" in out:
+                    is_v2 = True
+            except Exception:
+                is_v2 = False
+
+        if is_v2:
             return True
 
         if os.path.exists(HAWAL_CORE_BIN) and os.path.isdir(HAWAL_CORE_BIN):
             shutil.rmtree(HAWAL_CORE_BIN)
 
-        print(f"[Agent] 📥 Installing Hawal Core binary...")
+        print(f"[Agent] 📥 Installing Hawal Core v2 binary...")
         try:
             local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
             if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
                 shutil.copy(local_static_bin, HAWAL_CORE_BIN)
                 os.chmod(HAWAL_CORE_BIN, 0o755)
-                print("[Agent] ✅ Hawal Core binary installed from local panel.")
+                print("[Agent] ✅ Hawal Core v2 binary installed from local panel.")
                 return True
 
             url = f"{self.panel_url}/static/bin/hawal-core"
@@ -211,7 +220,7 @@ class HawalAgent:
             with urllib.request.urlopen(req, timeout=15) as resp, open(HAWAL_CORE_BIN, "wb") as out:
                 shutil.copyfileobj(resp, out)
             os.chmod(HAWAL_CORE_BIN, 0o755)
-            print("[Agent] ✅ Hawal Core binary downloaded and installed.")
+            print("[Agent] ✅ Hawal Core v2 binary downloaded and installed.")
             return True
         except Exception as e:
             print(f"[Agent] ❌ Failed to install Hawal Core binary: {e}")
@@ -350,11 +359,14 @@ class HawalAgent:
         return iface, local_ip, gateway_mac
 
     def _iptables_rule(self, action, table, chain, rule):
-        return subprocess.run(
-            ["iptables", "-t", table, action, chain] + rule,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        ).returncode == 0
+        try:
+            return subprocess.run(
+                ["iptables", "-t", table, action, chain] + rule,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            ).returncode == 0
+        except Exception:
+            return False
 
     def configure_paqet_iptables(self, role, core_port, ports=None):
         if role == "server":
@@ -670,14 +682,17 @@ class HawalAgent:
     def _sync_acct_rules(self, ports):
         if not ports:
             return
-        self._ensure_acct_chains()
-        for p in ports:
-            p_str = str(p)
-            for proto in ("tcp", "udp"):
-                if subprocess.run(["iptables", "-C", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
-                    subprocess.run(["iptables", "-A", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                if subprocess.run(["iptables", "-C", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
-                    subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            self._ensure_acct_chains()
+            for p in ports:
+                p_str = str(p)
+                for proto in ("tcp", "udp"):
+                    if subprocess.run(["iptables", "-C", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                        subprocess.run(["iptables", "-A", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if subprocess.run(["iptables", "-C", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                        subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
     def _read_acct_counters(self):
         bytes_in = {}

@@ -151,10 +151,17 @@ class HTTPServer:
                                 delta_tx = max(0, tx_total - prev["tx"])
                                 r_in = (delta_rx * 8.0) / (elapsed * 1_000_000.0)
                                 r_out = (delta_tx * 8.0) / (elapsed * 1_000_000.0)
+                                if r_in > 10000.0: r_in = 0.0
+                                if r_out > 10000.0: r_out = 0.0
+
+                                prev["accum_rx"] = prev.get("accum_rx", 0) + delta_rx
+                                prev["accum_tx"] = prev.get("accum_tx", 0) + delta_tx
 
                                 if now - prev.get("last_sample_time", 0) >= 30:
-                                    record_traffic_sample("node", m_id, delta_rx, delta_tx, r_in, r_out)
+                                    record_traffic_sample("node", m_id, prev["accum_rx"], prev["accum_tx"], r_in, r_out)
                                     prev["last_sample_time"] = now
+                                    prev["accum_rx"] = 0
+                                    prev["accum_tx"] = 0
 
                                 prev["last_time"] = now
                                 prev["rx"] = rx_total
@@ -171,7 +178,7 @@ class HTTPServer:
                             else:
                                 self.node_traffic_tracker[m_id] = {
                                     "last_time": now, "rx": rx_total, "tx": tx_total,
-                                    "last_sample_time": now
+                                    "last_sample_time": now, "accum_rx": 0, "accum_tx": 0
                                 }
                 except Exception:
                     pass
@@ -734,10 +741,17 @@ class HTTPServer:
                     delta_tx = max(0, tx_val - prev["tx"])
                     r_in = (delta_rx * 8.0) / (elapsed * 1_000_000.0)
                     r_out = (delta_tx * 8.0) / (elapsed * 1_000_000.0)
+                    if r_in > 10000.0: r_in = 0.0
+                    if r_out > 10000.0: r_out = 0.0
+
+                    prev["accum_rx"] = prev.get("accum_rx", 0) + delta_rx
+                    prev["accum_tx"] = prev.get("accum_tx", 0) + delta_tx
 
                     if now - prev.get("last_sample_time", 0) >= 30:
-                        record_traffic_sample("node", node_id, delta_rx, delta_tx, r_in, r_out)
+                        record_traffic_sample("node", node_id, prev["accum_rx"], prev["accum_tx"], r_in, r_out)
                         prev["last_sample_time"] = now
+                        prev["accum_rx"] = 0
+                        prev["accum_tx"] = 0
 
                     prev["last_time"] = now
                     prev["rx"] = rx_val
@@ -745,7 +759,7 @@ class HTTPServer:
                 else:
                     self.node_traffic_tracker[node_id] = {
                         "last_time": now, "rx": rx_val, "tx": tx_val,
-                        "last_sample_time": now
+                        "last_sample_time": now, "accum_rx": 0, "accum_tx": 0
                     }
 
             update_node_heartbeat(
