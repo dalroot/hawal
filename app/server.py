@@ -854,45 +854,50 @@ class HTTPServer:
                         })
                     continue
 
-                if t["server_node_id"] == node["id"]:
-                    if core_type == "hawal":
+                if core_type == "hawal":
+                    if t["client_node_id"] == node["id"]:
                         from app.hawal_engine import generate_hawal_core_server_config
                         node_configs.append({
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "server",
                             "core_port": t.get("core_port", 8080),
-                            "ports": t.get("ports", []),
-                            "config": generate_hawal_core_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
+                            "ports": [],
+                            "config": generate_hawal_core_server_config(dict(t, ports=[])),
+                            "restart_nonce": t.get("restart_nonce", 0)
                         })
-                    else:
-                        node_configs.append({
-                            "tunnel_id": t["id"],
-                            "core_type": "backhaul",
-                            "role": "server",
-                            "core_port": t.get("core_port", 3096),
-                            "ports": t.get("ports", []),
-                            "toml": generate_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
-                        })
-
-                elif t["client_node_id"] == node["id"]:
-                    server_node = get_node(t["server_node_id"])
-                    server_ip = server_node["ip"] if server_node else "127.0.0.1"
-                    if core_type == "hawal":
+                    elif t["server_node_id"] == node["id"]:
                         from app.hawal_engine import generate_hawal_core_client_config
+                        hawal_server_node = get_node(t["client_node_id"])
+                        hawal_server_ip = hawal_server_node["ip"] if hawal_server_node else "127.0.0.1"
                         node_configs.append({
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "client",
                             "core_port": t.get("core_port", 8080),
                             "ports": t.get("ports", []),
-                            "config": generate_hawal_core_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
+                            "config": generate_hawal_core_client_config(t, hawal_server_ip),
+                            "restart_nonce": t.get("restart_nonce", 0)
                         })
-                    else:
-                        node_configs.append({
-                            "tunnel_id": t["id"],
-                            "core_type": "backhaul",
-                            "role": "client",
+                    continue
+
+                if t["server_node_id"] == node["id"]:
+                    node_configs.append({
+                        "tunnel_id": t["id"],
+                        "core_type": "backhaul",
+                        "role": "server",
+                        "core_port": t.get("core_port", 3096),
+                        "ports": t.get("ports", []),
+                        "toml": generate_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
+                    })
+
+                elif t["client_node_id"] == node["id"]:
+                    server_node = get_node(t["server_node_id"])
+                    server_ip = server_node["ip"] if server_node else "127.0.0.1"
+                    node_configs.append({
+                        "tunnel_id": t["id"],
+                        "core_type": "backhaul",
+                        "role": "client",
                             "core_port": t.get("core_port", 3096),
                             "ports": t.get("ports", []),
                             "toml": generate_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
