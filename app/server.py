@@ -249,7 +249,10 @@ class HTTPServer:
 
     async def route_request(self, method, path, query, headers, body, writer):
         session_token = get_session_token_from_headers(headers)
-        is_authenticated = validate_session(session_token)
+        auth_hdr = headers.get("authorization", "") or headers.get("Authorization", "")
+        bearer_token = auth_hdr.replace("Bearer ", "").strip() if "Bearer " in auth_hdr else ""
+        query_token = query.get("token", [""])[0]
+        is_authenticated = validate_session(session_token) or (bearer_token and bearer_token == MASTER_TOKEN) or (query_token and query_token == MASTER_TOKEN)
 
         # 0. Auth API Endpoints
         if method == "GET" and path == "/api/auth/status":
@@ -327,8 +330,16 @@ class HTTPServer:
                 self.send_json(writer, {"error": "Unauthorized. Please log in."}, status=401)
                 return
 
-        # 5. Dashboard UI (Protected)
-        if method == "GET" and path in ["/", "/index.html"]:
+        # 5. Dashboard UI & SPA Pages (Protected)
+        PANEL_ROUTES = {
+            "/", "/index.html", "/dashboard",
+            "/nodes", "/node",
+            "/tunnels", "/tunnel",
+            "/ping", "/diagnostics",
+            "/logs", "/log",
+            "/settings"
+        }
+        if method == "GET" and path in PANEL_ROUTES:
             if not is_authenticated:
                 self.send_redirect(writer, "/login")
                 return
@@ -689,9 +700,9 @@ class HTTPServer:
             await broadcast_ws({"event": "ping_completed", "data": res})
             return
 
-        if method == "GET" and path == "/api/pings/latest":
+        if method == "GET" and path in ["/api/pings/latest", "/api/ping/history"]:
             pings = get_latest_pings()
-            self.send_json(writer, {"pings": pings})
+            self.send_json(writer, {"pings": pings, "history": pings})
             return
 
         # 6. REST API: Agent Heartbeat & Remote Node Synchronization

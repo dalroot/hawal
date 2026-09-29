@@ -50,7 +50,13 @@
           <span>آزمایش شبکه</span>
         </div>
         <div class="cf-nav-item" id="nav-logs" onclick="switchTab('logs'); loadLogs();">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
           <span>لاگ‌ها</span>
+        </div>
+
+        <div class="cf-nav-item" id="nav-settings" onclick="switchTab('settings')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <span>تنظیمات</span>
         </div>
       </div>
     </aside>
@@ -133,6 +139,7 @@
                 <!-- Dynamic Analytics Rows -->
               </div>
             </div>
+          </div>
 
           <!-- Datacenter Bandwidth & Traffic Analytics -->
           <div class="cf-card" style="margin-bottom: 24px;">
@@ -147,7 +154,7 @@
                   <option value="all:all">🌐 کل ترافیک شبکه (All Traffic)</option>
                 </select>
                 <!-- Time Range Tabs -->
-                <div class="btn-group" id="traffic-range-buttons" style="display: flex; background: var(--cf-bg-surface-2, rgba(255,255,255,0.06)); border-radius: 6px; padding: 2px;">
+                <div class="btn-group" id="traffic-range-buttons" style="display: flex; background: #eef1f8; border-radius: 8px; padding: 3px; gap: 2px;">
                   <button class="btn btn-sm btn-range" data-range="1h" onclick="changeBandwidthRange('1h')">1h</button>
                   <button class="btn btn-sm btn-range" data-range="12h" onclick="changeBandwidthRange('12h')">12h</button>
                   <button class="btn btn-sm btn-range active" data-range="24h" onclick="changeBandwidthRange('24h')">24h</button>
@@ -159,34 +166,34 @@
 
             <!-- Metric Summary Stats Cards -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px;">
-              <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px; border: 1px solid var(--cf-border);">
+              <div class="metric-card">
                 <div style="font-size: 11px; color: var(--cf-text-muted);">دانلود لحظه‌ای (Inbound Rate)</div>
                 <div id="stat-curr-rate-in" style="font-size: 18px; font-weight: 700; color: #10b981; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
               </div>
-              <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px; border: 1px solid var(--cf-border);">
+              <div class="metric-card">
                 <div style="font-size: 11px; color: var(--cf-text-muted);">آپلود لحظه‌ای (Outbound Rate)</div>
                 <div id="stat-curr-rate-out" style="font-size: 18px; font-weight: 700; color: #f59e0b; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
               </div>
-              <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px; border: 1px solid var(--cf-border);">
+              <div class="metric-card">
                 <div style="font-size: 11px; color: var(--cf-text-muted);">حجم دانلود بازه (Total In)</div>
                 <div id="stat-total-in" style="font-size: 18px; font-weight: 700; color: var(--cf-text-primary); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0 MB</div>
               </div>
-              <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px; border: 1px solid var(--cf-border);">
+              <div class="metric-card">
                 <div style="font-size: 11px; color: var(--cf-text-muted);">حجم آپلود بازه (Total Out)</div>
                 <div id="stat-total-out" style="font-size: 18px; font-weight: 700; color: var(--cf-text-primary); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0 MB</div>
               </div>
-              <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px; border: 1px solid var(--cf-border);">
+              <div class="metric-card">
                 <div style="font-size: 11px; color: var(--cf-text-muted);">اوج پهنای باند (Peak Rate)</div>
-                <div id="stat-peak-rate" style="font-size: 18px; font-weight: 700; color: #818cf8; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
+                <div id="stat-peak-rate" style="font-size: 18px; font-weight: 700; color: #4f46e5; font-family: 'JetBrains Mono', monospace; margin-top: 4px;">0.00 Mbps</div>
               </div>
             </div>
 
             <!-- Chart Canvas Container -->
-            <div style="position: relative; width: 100%; height: 260px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--cf-border); padding: 8px 12px; box-sizing: border-box; overflow: hidden;">
+            <div class="bandwidth-chart-wrapper">
               <canvas id="bandwidthCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
-              <div id="chartTooltip" style="position: absolute; display: none; background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #f8fafc; pointer-events: none; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5); direction: ltr; font-family: 'JetBrains Mono', monospace;"></div>
+              <div id="chartTooltip"></div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: var(--cf-text-muted); flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: var(--cf-text-muted); flex-wrap: wrap; gap: 8px;">
               <div style="display: flex; gap: 16px;">
                 <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 3px; background: #10b981; border-radius: 2px;"></span> ترافیک دریافتی (Inbound / Download)</span>
                 <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 3px; background: #f59e0b; border-radius: 2px;"></span> ترافیک ارسالی (Outbound / Upload)</span>

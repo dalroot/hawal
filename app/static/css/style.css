@@ -1169,27 +1169,60 @@ tbody tr:hover { background: #fafbff; }
 .btn-range {
   background: transparent;
   border: none;
-  color: var(--cf-text-muted);
-  padding: 4px 11px;
+  color: #667085;
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   font-family: 'JetBrains Mono', monospace;
 }
 .btn-range:hover {
-  color: var(--cf-text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  color: #172033;
+  background: rgba(255, 255, 255, 0.7);
 }
 .btn-range.active {
-  background: var(--cf-orange);
+  background: #4f46e5;
   color: #fff;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.25);
 }
 .metric-card {
-  transition: border-color 0.2s, transform 0.2s;
+  background: #f8f9fc;
+  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e7e9f0;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .metric-card:hover {
-  border-color: var(--cf-border-hover);
-  transform: translateY(-1px);
+  border-color: #a5b4fc;
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.06);
+}
+.bandwidth-chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  background: #f8f9fc;
+  border-radius: 12px;
+  border: 1px solid #edf0f5;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+#chartTooltip {
+  position: absolute;
+  display: none;
+  background: #172033;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #f8fafc;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  direction: ltr;
+  font-family: 'JetBrains Mono', monospace;
 }

@@ -221,13 +221,63 @@ function handleQuickFilter(query) {
     const text = row.innerText.toLowerCase();
     row.style.display = text.includes(q) ? 'flex' : 'none';
   });
+
+  const nodesTableRows = document.querySelectorAll('#nodes-table-body tr');
+  nodesTableRows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(q) ? '' : 'none';
+  });
+
+  const tunnelsTableRows = document.querySelectorAll('#tunnels-table-body tr');
+  tunnelsTableRows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(q) ? '' : 'none';
+  });
 }
 
 // -------------------------------------------------------------
-// Tab Navigation
+// SPA Routing & Tab Navigation
 // -------------------------------------------------------------
-function switchTab(tabId) {
+const ROUTE_TAB_MAP = {
+  '': 'dashboard',
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/node': 'nodes',
+  '/nodes': 'nodes',
+  '/tunnel': 'tunnels',
+  '/tunnels': 'tunnels',
+  '/ping': 'ping',
+  '/diagnostics': 'ping',
+  '/log': 'logs',
+  '/logs': 'logs',
+  '/settings': 'settings'
+};
+
+const TAB_PATH_MAP = {
+  'dashboard': '/',
+  'nodes': '/nodes',
+  'tunnels': '/tunnels',
+  'ping': '/ping',
+  'logs': '/logs',
+  'settings': '/settings'
+};
+
+function getTabFromUrl() {
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  if (ROUTE_TAB_MAP[path]) {
+    return ROUTE_TAB_MAP[path];
+  }
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  if (hash && (ROUTE_TAB_MAP['/' + hash] || ROUTE_TAB_MAP[hash])) {
+    return ROUTE_TAB_MAP['/' + hash] || ROUTE_TAB_MAP[hash];
+  }
+  return 'dashboard';
+}
+
+function switchTab(tabId, pushState = true) {
+  if (!tabId) tabId = 'dashboard';
   STATE.activeTab = tabId;
+
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   const activeSection = document.getElementById(`tab-${tabId}`);
   if (activeSection) activeSection.style.display = 'block';
@@ -244,19 +294,36 @@ function switchTab(tabId) {
     'logs': 'لاگ‌ها',
     'settings': 'تنظیمات'
   };
+  const titleFa = titles[tabId] || 'نمای کلی';
+  document.title = `Hawal — ${titleFa}`;
+
   const breadcrumbs = document.getElementById('cf-breadcrumbs');
   if (breadcrumbs) {
     breadcrumbs.innerHTML = `
-      <span>Hawal</span>
+      <span style="cursor: pointer;" onclick="switchTab('dashboard')">Hawal</span>
       <span>/</span>
-      <span style="color: var(--cf-text-primary); font-weight: 700;">${titles[tabId] || 'نمای کلی'}</span>
+      <span style="color: var(--cf-text-primary); font-weight: 700;">${titleFa}</span>
     `;
+  }
+
+  if (pushState) {
+    const targetPath = TAB_PATH_MAP[tabId] || '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ tab: tabId }, '', targetPath);
+    }
   }
 
   if (tabId === 'dashboard') {
     setTimeout(loadBandwidthMetrics, 50);
+  } else if (tabId === 'logs') {
+    loadLogs();
   }
 }
+
+window.addEventListener('popstate', (e) => {
+  const tab = (e.state && e.state.tab) ? e.state.tab : getTabFromUrl();
+  switchTab(tab, false);
+});
 
 // -------------------------------------------------------------
 // Live WebSocket Connection
@@ -296,7 +363,7 @@ async function fetchData() {
 
     STATE.nodes = nodesRes.nodes || [];
     STATE.tunnels = tunnelsRes.tunnels || [];
-    STATE.pings = pingsRes.history || [];
+    STATE.pings = pingsRes.history || pingsRes.pings || [];
     STATE.settings = settingsRes.settings || {};
     const publicPanelUrl = document.getElementById('setting-public-panel-url');
     if (publicPanelUrl) publicPanelUrl.value = STATE.settings.public_panel_url || '';
@@ -583,7 +650,7 @@ function renderBandwidthChart(data) {
 
   // Grid Lines & Y Axis Labels
   const gridLines = 4;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.06)';
   ctx.lineWidth = 1;
   ctx.fillStyle = '#64748b';
   ctx.font = '10px JetBrains Mono, monospace';
@@ -845,33 +912,64 @@ function renderNodes() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  if (STATE.nodes.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 36px 16px; color: var(--cf-text-muted);">
+          <div style="font-size: 32px; margin-bottom: 8px;">🌐</div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--cf-text-secondary);">هنوز هیچ نودی ثبت نشده است</div>
+          <p style="font-size: 12px; margin-top: 4px;">برای شروع، حداقل یک نود ایران و یک نود خارج اضافه کنید.</p>
+          <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()" style="margin-top: 14px;">+ تعریف نود جدید</button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   STATE.nodes.forEach(node => {
     const tr = document.createElement('tr');
     const isOnline = node.status === 'online';
+    const roleBadge = node.role === 'iran'
+      ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px; margin-right: 6px;">سرور ایران</span>'
+      : '<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 11px; margin-right: 6px;">سرور خارج</span>';
 
     tr.innerHTML = `
       <td style="font-weight: 800;">
         <span style="margin-left: 6px;">${node.flag || '🌐'}</span>
         ${node.name}
+        ${roleBadge}
       </td>
       <td>${node.country_name || 'نامشخص'} (${node.country_code || 'XX'})</td>
-      <td style="font-family: 'JetBrains Mono'; color: var(--accent-amber);">${node.ip}</td>
+      <td>
+        <span style="font-family: 'JetBrains Mono', monospace; color: var(--cf-text-primary); cursor: pointer;" onclick="navigator.clipboard.writeText('${node.ip}'); showToast('آدرس IP کپی شد', 'success')" title="کلیک برای کپی IP">
+          ${node.ip} 📋
+        </span>
+      </td>
       <td>
         <div class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">
           <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
           ${isOnline ? 'آنلاین' : 'آفلاین'}
         </div>
       </td>
-      <td style="font-family: 'JetBrains Mono'; font-size: 13px;">
-        CPU: ${node.cpu_percent || 0}% | RAM: ${node.ram_used_mb || 0}MB
+      <td>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; gap: 8px;">
+            <span style="color: var(--cf-text-muted);">CPU:</span>
+            <span style="color: ${(node.cpu_percent || 0) > 80 ? '#ef4444' : '#10b981'}; font-weight: 600;">${node.cpu_percent || 0}%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 8px;">
+            <span style="color: var(--cf-text-muted);">RAM:</span>
+            <span>${node.ram_used_mb || 0} MB</span>
+          </div>
+        </div>
       </td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick="showInstallModal('${node.token}', '${node.role}', '${node.name}')">
+        <button class="btn btn-secondary btn-sm" onclick="showInstallModal('${node.token}', '${node.role}', '${node.name}')" title="دستور نصب روی سرور">
           دستور نصب 📋
         </button>
       </td>
       <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteNode('${node.id}')">حذف</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteNode('${node.id}')" title="حذف نود">حذف</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -934,6 +1032,20 @@ function renderTunnels() {
   const tbody = document.getElementById('tunnels-table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
+
+  if (STATE.tunnels.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 36px 16px; color: var(--cf-text-muted);">
+          <div style="font-size: 32px; margin-bottom: 8px;">⚡</div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--cf-text-secondary);">هنوز هیچ تانلی ساخته نشده است</div>
+          <p style="font-size: 12px; margin-top: 4px;">برای اتصال نود ایران به خارج، یک تانل جدید ایجاد کنید.</p>
+          <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()" style="margin-top: 14px;">+ ساخت تانل جدید</button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
 
   STATE.tunnels.forEach(tun => {
     const tr = document.createElement('tr');
@@ -1384,6 +1496,8 @@ async function handleSaveSettings(e) {
 // App Initialization
 // -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  const initialTab = getTabFromUrl();
+  switchTab(initialTab, false);
   fetchData();
   connectWebSocket();
   renderPortChips();

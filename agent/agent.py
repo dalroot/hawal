@@ -41,7 +41,78 @@ class HawalAgent:
         os.makedirs(BIN_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(LOG_DIR, exist_ok=True)
+        self._load_tunnel_state()
         self.cleanup_orphaned_cores()
+
+    def _save_tunnel_state(self, tun_id, pid, content_hash, metadata):
+        try:
+            state_file = f"{CONFIG_DIR}/{tun_id}.state"
+            with open(state_file, "w") as f:
+                json.dump({"pid": pid, "hash": content_hash, "metadata": metadata or {}}, f)
+        except Exception:
+            pass
+
+    def _load_tunnel_state(self):
+        if not os.path.exists(CONFIG_DIR):
+            return
+        for fname in os.listdir(CONFIG_DIR):
+            if fname.endswith(".state"):
+                tun_id = fname[:-6]
+                try:
+                    with open(f"{CONFIG_DIR}/{fname}", "r") as f:
+                        data = json.load(f)
+                    pid = data.get("pid")
+                    if pid and os.path.exists(f"/proc/{pid}"):
+                        class AdoptedProcess:
+                            def __init__(self, p):
+                                self.pid = p
+                            def poll(self):
+                                return None if os.path.exists(f"/proc/{self.pid}") else 0
+                            def wait(self, timeout=None):
+                                pass
+                            def terminate(self):
+                                try: os.kill(self.pid, signal.SIGTERM)
+                                except: pass
+                        self.running_processes[tun_id] = AdoptedProcess(pid)
+                        self.running_configs[tun_id] = data.get("hash")
+                        self.running_metadata[tun_id] = data.get("metadata", {})
+                        print(f"[Agent] 🔗 Adopted existing live process for tunnel {tun_id} (PID {pid})")
+                except Exception:
+                    pass
+
+    def _adopt_running_system_processes(self, configs):
+        try:
+            for item in configs:
+                tun_id = item.get("tunnel_id")
+                if tun_id in self.running_processes and self.running_processes[tun_id].poll() is None:
+                    continue
+                core_type = item.get("core_type")
+                core_port = str(item.get("core_port", ""))
+                for pid_dir in os.listdir("/proc"):
+                    if not pid_dir.isdigit():
+                        continue
+                    try:
+                        with open(f"/proc/{pid_dir}/cmdline", "rb") as f:
+                            cmdline = f.read().decode('utf-8', errors='ignore').replace('\x00', ' ')
+                        if core_type in cmdline and (f":{core_port}" in cmdline or tun_id in cmdline):
+                            pid = int(pid_dir)
+                            class AdoptedProcess:
+                                def __init__(self, p):
+                                    self.pid = p
+                                def poll(self):
+                                    return None if os.path.exists(f"/proc/{self.pid}") else 0
+                                def wait(self, timeout=None):
+                                    pass
+                                def terminate(self):
+                                    try: os.kill(self.pid, signal.SIGTERM)
+                                    except: pass
+                            self.running_processes[tun_id] = AdoptedProcess(pid)
+                            print(f"[Agent] 🛡️ Successfully adopted active background process {core_type} for tunnel {tun_id} (PID {pid})")
+                            break
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def _load_agent_restart_nonce(self):
         try:
@@ -389,6 +460,7 @@ class HawalAgent:
 
     def apply_configs(self, configs):
         active_ids = set()
+        self._adopt_running_system_processes(configs)
 
         for item in configs:
             tun_id = item["tunnel_id"]
@@ -535,11 +607,16 @@ class HawalAgent:
             self.running_processes[tun_id] = proc
             self.running_configs[tun_id] = content_hash
             self.running_metadata[tun_id] = metadata or {}
+            self._save_tunnel_state(tun_id, proc.pid, content_hash, metadata or {})
         except Exception as e:
             print(f"[Agent] ❌ Failed to start tunnel process {tun_id}: {e}")
 
     def stop_tunnel_process(self, tun_id):
         metadata = self.running_metadata.get(tun_id, {})
+        state_file = f"{CONFIG_DIR}/{tun_id}.state"
+        if os.path.exists(state_file):
+            try: os.remove(state_file)
+            except: pass
         if tun_id in self.running_processes:
             proc = self.running_processes[tun_id]
             pid = proc.pid
@@ -745,8 +822,7 @@ class HawalAgent:
                 self.track_and_report_traffic()
                 time.sleep(4)
         finally:
-            for tun_id in list(self.running_processes.keys()):
-                self.stop_tunnel_process(tun_id)
+            print("[Agent] ℹ️ Agent supervisor stopped. Active tunnels persist in background.")
 
 if __name__ == "__main__":
     p_url = None
