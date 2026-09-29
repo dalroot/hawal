@@ -13,6 +13,7 @@ import urllib.request
 import subprocess
 import signal
 import shutil
+import re
 
 HAWAL_DIR = "/opt/hawal"
 BIN_DIR = f"{HAWAL_DIR}/bin"

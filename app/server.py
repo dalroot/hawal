@@ -19,7 +19,7 @@ from app.db import (
     set_tunnel_absolute_traffic, update_tunnel_traffic,
     record_traffic_sample, clean_old_traffic_samples, get_traffic_history
 )
-from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
+from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config, generate_docker_compose
 from app.gost_engine import generate_gost_server_command, generate_gost_client_command
 from app.ping_tool import run_ping, run_tcp_ping
 from app.auth import (
