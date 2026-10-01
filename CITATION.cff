@@ -3,8 +3,8 @@ message: "If you use Hawal Tunnel in research or benchmarking, please cite it as
 authors:
   - name: "Hawal Open Source Contributors"
 title: "Hawal Tunnel: High-Performance Censorship-Resilient Multi-Core Reverse Tunneling System"
-version: 2.3.0
-date-released: 2026-09-29
+version: 2.4.0
+date-released: 2026-10-01
 url: "https://github.com/dalroot/hawal"
 keywords:
   - censorship-circumvention

@@ -483,6 +483,14 @@
 
         </div>
 
+        <!-- Remember Me Checkbox -->
+        <div style="display: flex; align-items: center; justify-content: flex-start; margin: 4px 0 20px; font-size: 13.5px; color: var(--text-label);">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="remember-me" name="remember" checked style="width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; border-radius: 4px;">
+            <span>مرا به خاطر بسپار (ذخیره نشست ۳۰ روزه)</span>
+          </label>
+        </div>
+
         <!-- Submit Button -->
         <button type="submit" class="btn-submit" id="btn-submit">
           <span class="spinner" id="btn-spinner"></span>
@@ -579,7 +587,7 @@
           document.getElementById('first-time-container').style.display = 'block';
           document.getElementById('btn-text').innerText = 'ذخیره و ورود به پنل';
         } else {
-          // Standard 3X-UI Login View
+          // Ant Design Login View
           document.getElementById('page-subtitle').innerText = 'Hello';
           document.getElementById('page-desc').innerText = 'برای ورود، نام کاربری و رمز عبور را وارد کنید';
           document.getElementById('username-label').innerText = 'Username';
@@ -634,10 +642,13 @@
         const data = await res.json();
 
         if (res.ok && data.success) {
+          if (data.token) {
+            localStorage.setItem('hawal_session', data.token);
+          }
           showAlert('ورود موفقیت‌آمیز بود. در حال انتقال...', true);
           setTimeout(() => {
             window.location.href = '/';
-          }, 400);
+          }, 300);
         } else {
           showAlert(data.error || 'اطلاعات ورود نادرست است.');
           submitBtn.disabled = false;

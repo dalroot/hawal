@@ -8,6 +8,7 @@ import secrets
 import time
 import re
 import socket
+import subprocess
 import urllib.parse
 from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN
 from app.db import (
@@ -29,12 +30,18 @@ from app.auth import (
 
 def get_session_token_from_headers(headers):
     cookie_header = headers.get("cookie", "")
-    if not cookie_header:
-        return ""
-    for part in cookie_header.split(";"):
-        part = part.strip()
-        if part.startswith("hawal_session="):
-            return part.split("=", 1)[1].strip()
+    if cookie_header:
+        for part in cookie_header.split(";"):
+            part = part.strip()
+            if part.startswith("hawal_session="):
+                tok = part.split("=", 1)[1].strip()
+                if tok:
+                    return tok
+    auth = headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        tok = auth.replace("Bearer ", "").strip()
+        if tok:
+            return tok
     return ""
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -182,8 +189,88 @@ class HTTPServer:
                                 }
                 except Exception:
                     pass
+
+                # Sample local tunnel accounting counters from iptables HAWAL_ACCT_IN / HAWAL_ACCT_OUT
+                try:
+                    ports_in, ports_out = self._read_kernel_acct()
+                    if ports_in or ports_out:
+                        tunnels = list_tunnels()
+                        tunnel_updated = False
+                        for tun in tunnels:
+                            tun_id = tun["id"]
+                            fwd_ports = []
+                            for rule in tun.get("ports", []):
+                                try:
+                                    p_str = str(rule).split("=")[0].split(":")[-1].strip()
+                                    fwd_ports.append(int(p_str))
+                                except Exception:
+                                    pass
+                            target_ports = fwd_ports if fwd_ports else [tun.get("core_port")]
+                            cur_in = sum(ports_in.get(p, 0) for p in target_ports)
+                            cur_out = sum(ports_out.get(p, 0) for p in target_ports)
+
+                            prev_t = self.tunnel_traffic_tracker.get(tun_id)
+                            if prev_t:
+                                elapsed = max(1.0, now - prev_t["time"])
+                                delta_in = max(0, cur_in - prev_t["raw_in"])
+                                delta_out = max(0, cur_out - prev_t["raw_out"])
+                                if delta_in > 0 or delta_out > 0:
+                                    update_tunnel_traffic(tun_id, delta_in, delta_out)
+                                    tunnel_updated = True
+                                    r_in = (delta_in * 8.0) / (elapsed * 1_000_000.0)
+                                    r_out = (delta_out * 8.0) / (elapsed * 1_000_000.0)
+                                    record_traffic_sample("tunnel", tun_id, delta_in, delta_out, r_in, r_out)
+                                prev_t["time"] = now
+                                prev_t["raw_in"] = cur_in
+                                prev_t["raw_out"] = cur_out
+                            else:
+                                db_in = tun.get("bytes_in", 0) or 0
+                                db_out = tun.get("bytes_out", 0) or 0
+                                if cur_in > db_in or cur_out > db_out:
+                                    set_tunnel_absolute_traffic(tun_id, max(cur_in, db_in), max(cur_out, db_out))
+                                    tunnel_updated = True
+                                self.tunnel_traffic_tracker[tun_id] = {
+                                    "time": now,
+                                    "raw_in": cur_in,
+                                    "raw_out": cur_out
+                                }
+                        if tunnel_updated:
+                            await broadcast_ws({"event": "tunnel_updated"})
+                except Exception:
+                    pass
             except Exception:
                 await asyncio.sleep(5)
+
+    def _read_kernel_acct(self):
+        bytes_in = {}
+        bytes_out = {}
+        try:
+            res_in = subprocess.run(["iptables", "-nxvL", "HAWAL_ACCT_IN"], capture_output=True, text=True, timeout=2)
+            if res_in.returncode == 0:
+                for line in res_in.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        m = re.search(r'dpt:(\d+)', line)
+                        if m:
+                            p = int(m.group(1))
+                            bytes_in[p] = bytes_in.get(p, 0) + int(parts[1])
+        except Exception:
+            pass
+
+        try:
+            res_out = subprocess.run(["iptables", "-nxvL", "HAWAL_ACCT_OUT"], capture_output=True, text=True, timeout=2)
+            if res_out.returncode == 0:
+                for line in res_out.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        m = re.search(r'spt:(\d+)', line)
+                        if m:
+                            p = int(m.group(1))
+                            bytes_out[p] = bytes_out.get(p, 0) + int(parts[1])
+        except Exception:
+            pass
+
+        return bytes_in, bytes_out
 
     async def handle_client(self, reader, writer):
         try:
@@ -249,6 +336,10 @@ class HTTPServer:
                 pass
         finally:
             try:
+                await writer.drain()
+            except:
+                pass
+            try:
                 writer.close()
                 await writer.wait_closed()
             except:
@@ -293,8 +384,8 @@ class HTTPServer:
                 if not ok:
                     self.send_json(writer, {"error": err}, status=401)
                     return
-                cookie = f"hawal_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"
-                self.send_json(writer, {"success": True}, set_cookie=cookie)
+                cookie = f"hawal_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7776000"
+                self.send_json(writer, {"success": True, "token": token}, set_cookie=cookie)
             except Exception as e:
                 self.send_json(writer, {"error": str(e)}, status=500)
             return
@@ -318,10 +409,15 @@ class HTTPServer:
             return
 
         # 2. Static Files (Public)
-        if method == "GET" and path.startswith("/static/"):
+        if method in ["GET", "HEAD"] and path in ["/theme.css", "/app.css"]:
+            file_path = os.path.join(STATIC_DIR, "css", path.lstrip("/"))
+            await self.serve_static_file(file_path, writer, method=method)
+            return
+
+        if method in ["GET", "HEAD"] and path.startswith("/static/"):
             rel_path = path.replace("/static/", "", 1)
             file_path = os.path.join(STATIC_DIR, rel_path)
-            await self.serve_static_file(file_path, writer)
+            await self.serve_static_file(file_path, writer, method=method)
             return
 
         # 3. One-Line Node Installer Script (Public)
@@ -394,15 +490,39 @@ class HTTPServer:
             name = data.get("name", "New Node")
             ip = data.get("ip", "127.0.0.1")
             role = data.get("role", "kharej")
+            user_cc = data.get("country_code", "").strip().upper()
             token = secrets.token_hex(16)
             
             # Resolve GeoIP location and country flag
-            from app.geoip import resolve_geoip
+            from app.geoip import resolve_geoip, get_country_flag, COUNTRY_NAMES_FA
             geo = resolve_geoip(ip)
-            if role == "iran":
+
+            # Heuristics & user overrides
+            n_lower = name.lower()
+            if user_cc and user_cc != "AUTO" and user_cc in COUNTRY_NAMES_FA:
+                geo["country_code"] = user_cc
+                geo["country_name"] = COUNTRY_NAMES_FA[user_cc]
+                geo["flag"] = get_country_flag(user_cc)
+            elif "germany" in n_lower or "آلمان" in name or n_lower == "de":
+                geo["country_code"] = "DE"
+                geo["country_name"] = "آلمان"
+                geo["flag"] = "🇩🇪"
+                geo["city"] = geo.get("city") or "Frankfurt"
+            elif "netherland" in n_lower or "holland" in n_lower or "هلند" in name or n_lower == "nl":
+                geo["country_code"] = "NL"
+                geo["country_name"] = "هلند"
+                geo["flag"] = "🇳🇱"
+                geo["city"] = geo.get("city") or "Amsterdam"
+            elif "finland" in n_lower or "فنلاند" in name or n_lower == "fi":
+                geo["country_code"] = "FI"
+                geo["country_name"] = "فنلاند"
+                geo["flag"] = "🇫🇮"
+                geo["city"] = geo.get("city") or "Helsinki"
+            elif role == "iran" or "iran" in n_lower or "ایران" in name or n_lower == "ir":
                 geo["flag"] = "🇮🇷"
                 geo["country_name"] = "ایران"
                 geo["country_code"] = "IR"
+                geo["city"] = geo.get("city") or "تهران"
 
             save_node(node_id, name, ip, role, token, 
                       country_code=geo.get("country_code", "GLOBAL"),
@@ -418,6 +538,55 @@ class HTTPServer:
                 "flag": geo.get("flag", "🌐"),
                 "country_name": geo.get("country_name", "خارج")
             })
+            await broadcast_ws({"event": "node_updated"})
+            return
+
+        if method == "PUT" and path.startswith("/api/nodes/"):
+            node_id = path.split("/")[-1]
+            n = get_node(node_id)
+            if not n:
+                self.send_json(writer, {"error": "Node not found"}, status=404)
+                return
+            data = json.loads(body.decode('utf-8'))
+            name = data.get("name", n["name"])
+            role = data.get("role", n["role"])
+            user_cc = data.get("country_code", "").strip().upper()
+            from app.geoip import COUNTRY_NAMES_FA, get_country_flag
+            flag = n.get("flag", "🌐")
+            country_name = n.get("country_name", "خارج")
+            country_code = n.get("country_code", "GLOBAL")
+            city = data.get("city", n.get("city", ""))
+
+            n_lower = name.lower()
+            if user_cc and user_cc != "AUTO" and user_cc in COUNTRY_NAMES_FA:
+                country_code = user_cc
+                country_name = COUNTRY_NAMES_FA[user_cc]
+                flag = get_country_flag(user_cc)
+            elif "germany" in n_lower or "آلمان" in name or n_lower == "de":
+                country_code = "DE"
+                country_name = "آلمان"
+                flag = "🇩🇪"
+                city = city or "Frankfurt"
+            elif "netherland" in n_lower or "holland" in n_lower or "هلند" in name or n_lower == "nl":
+                country_code = "NL"
+                country_name = "هلند"
+                flag = "🇳🇱"
+                city = city or "Amsterdam"
+            elif "finland" in n_lower or "فنلاند" in name or n_lower == "fi":
+                country_code = "FI"
+                country_name = "فنلاند"
+                flag = "🇫🇮"
+                city = city or "Helsinki"
+
+            from app.db import get_db
+            with get_db() as conn:
+                conn.execute("""
+                UPDATE nodes SET name=?, role=?, country_code=?, country_name=?, flag=?, city=?
+                WHERE id=?
+                """, (name, role, country_code, country_name, flag, city, node_id))
+                conn.commit()
+
+            self.send_json(writer, {"success": True, "node_id": node_id})
             await broadcast_ws({"event": "node_updated"})
             return
 
@@ -452,10 +621,14 @@ class HTTPServer:
                 default_transport = "ws"
             transport = data.get("transport", default_transport)
             ports = data.get("ports", ["443=127.0.0.1:443"])
-            token = secrets.token_hex(8)
-            
+            # Reserved ports check (prevent forwarding panel port 9090, rex 7444, ssh 22)
+            for p in ports:
+                lp = str(p).split("=")[0].split(":")[0].strip()
+                if lp.isdigit() and int(lp) in {22, 9090, 7444}:
+                    self.send_json(writer, {"error": f"پورت فوروارد {lp} پورت پنل یا مدیریت سرور است و امکان هدایت آن وجود ندارد."}, status=400)
+                    return
+
             # Port conflict check
-            from app.backhaul import validate_tunnel_ports
             valid, err = validate_tunnel_ports(core_port, server_node_id)
             if not valid:
                 self.send_json(writer, {"error": err}, status=400)
@@ -499,6 +672,22 @@ class HTTPServer:
             await broadcast_ws({"event": "settings_updated"})
             return
 
+        if method == "GET" and "/api/tunnels/" in path and path.endswith("/logs"):
+            tunnel_id = path.split("/")[3]
+            log_file = f"/opt/hawal/logs/{tunnel_id}.log"
+            lines = []
+            if os.path.exists(log_file):
+                try:
+                    with open(log_file, "r", errors="ignore") as f:
+                        all_lines = f.readlines()
+                        lines = [line.strip() for line in all_lines[-60:] if line.strip()]
+                except Exception as e:
+                    lines = [f"Error reading log file: {e}"]
+            else:
+                lines = ["[info] Waiting for tunnel supervisor to emit log entries..."]
+            self.send_json(writer, {"tunnel_id": tunnel_id, "logs": lines})
+            return
+
         if method == "PUT" and path.startswith("/api/tunnels/"):
             tunnel_id = path.split("/")[3]
             data = json.loads(body.decode('utf-8'))
@@ -515,13 +704,25 @@ class HTTPServer:
                 default_transport = "ws"
             transport = data.get("transport", default_transport)
             ports = data.get("ports", [])
-            
+
+            for p in ports:
+                lp = str(p).split("=")[0].split(":")[0].strip()
+                if lp.isdigit() and int(lp) in {22, 9090, 7444}:
+                    self.send_json(writer, {"error": f"پورت فوروارد {lp} پورت پنل یا مدیریت سرور است و امکان هدایت آن وجود ندارد."}, status=400)
+                    return
+
             t = get_tunnel(tunnel_id)
             if not t:
                 self.send_json(writer, {"error": "Tunnel not found"}, status=404)
                 return
 
+            valid, err = validate_tunnel_ports(core_port, t.get("server_node_id"), current_tunnel_id=tunnel_id)
+            if not valid:
+                self.send_json(writer, {"error": err}, status=400)
+                return
+
             update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type)
+            request_tunnel_restart(tunnel_id)
             self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
             await broadcast_ws({"event": "tunnel_updated"})
             return
@@ -971,8 +1172,8 @@ echo "⚡ Hawal Tunnel (هه‌واڵ) - Automated Node Installer"
 echo "🌐 Node Role: ${{ROLE^^}} | Panel: ${{PANEL_URL}}"
 echo "==============================================="
 
-if ! command -v python3 &> /dev/null; then
-  echo "📦 Installing Python3..."
+if ! command -v python3 &> /dev/null || ! command -v curl &> /dev/null || ! command -v tar &> /dev/null; then
+  echo "📦 Installing prerequisites (python3, curl, tar)..."
   apt-get update -y && apt-get install -y python3 curl tar || true
 fi
 
@@ -986,13 +1187,25 @@ case "$ARCH" in
   *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-curl -sL "$BH_URL" -o /tmp/backhaul.tar.gz
+curl -fsSL --connect-timeout 10 --max-time 60 "$BH_URL" -o /tmp/backhaul.tar.gz
 tar -xzf /tmp/backhaul.tar.gz -C /usr/local/bin/ backhaul
 chmod +x /usr/local/bin/backhaul
 rm -f /tmp/backhaul.tar.gz
 
 echo "📥 Installing Hawal Node Agent Daemon..."
-curl -sL "${{PANEL_URL}}/static/js/agent.py" -o /opt/hawal/agent.py
+AGENT_OK=0
+# 1. Official GitHub Raw (fastest & high-bandwidth for foreign exit/relay nodes)
+if curl -fsSL --connect-timeout 8 --max-time 30 "https://raw.githubusercontent.com/dalroot/hawal/master/agent/agent.py" -o /opt/hawal/agent.py 2>/dev/null && [ -s /opt/hawal/agent.py ]; then
+  AGENT_OK=1
+# 2. Local Panel fallback (ideal for domestic Iran nodes)
+elif curl -fsSL --connect-timeout 8 --max-time 30 "${{PANEL_URL}}/static/js/agent.py" -o /opt/hawal/agent.py 2>/dev/null && [ -s /opt/hawal/agent.py ]; then
+  AGENT_OK=1
+fi
+
+if [ "$AGENT_OK" -eq 0 ] || [ ! -s /opt/hawal/agent.py ]; then
+  echo "❌ Failed to download agent daemon. Please check network connectivity."
+  exit 1
+fi
 chmod +x /opt/hawal/agent.py
 
 # Write agent config
@@ -1024,8 +1237,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable hawal-agent
-systemctl restart hawal-agent
+systemctl enable hawal-agent || true
+systemctl restart hawal-agent || systemctl start hawal-agent || true
 
 echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!"
 """
@@ -1038,7 +1251,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         writer.write(resp.encode('utf-8'))
         await writer.drain()
 
-    def serve_template(self, filename, writer):
+    async def serve_template(self, filename, writer):
         filepath = os.path.join(TEMPLATES_DIR, filename)
         if not os.path.exists(filepath):
             self.send_json(writer, {"error": "Template not found"}, status=404)
@@ -1052,8 +1265,12 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
             "Connection: close\r\n\r\n" + content
         )
         writer.write(resp.encode('utf-8'))
+        try:
+            await writer.drain()
+        except:
+            pass
 
-    def serve_static_file(self, filepath, writer):
+    async def serve_static_file(self, filepath, writer, method="GET"):
         if not os.path.exists(filepath) or os.path.isdir(filepath):
             self.send_json(writer, {"error": "File not found"}, status=404)
             return
@@ -1068,7 +1285,14 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
             "Cache-Control: public, max-age=3600\r\n"
             "Connection: close\r\n\r\n"
         )
-        writer.write(resp_headers.encode('utf-8') + content)
+        if method == "HEAD":
+            writer.write(resp_headers.encode('utf-8'))
+        else:
+            writer.write(resp_headers.encode('utf-8') + content)
+        try:
+            await writer.drain()
+        except:
+            pass
 
     def send_redirect(self, writer, location, set_cookie=None):
         headers = [

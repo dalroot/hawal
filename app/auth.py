@@ -8,11 +8,34 @@ import hashlib
 import os
 import secrets
 import time
-from app.config import load_settings, save_settings
+import json
+from app.config import load_settings, save_settings, DATA_DIR
 
-# Active in-memory session tokens: {token_str: expiry_timestamp}
-ACTIVE_SESSIONS = {}
-SESSION_LIFETIME_SECONDS = 30 * 24 * 60 * 60  # 30 days
+SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
+SESSION_LIFETIME_SECONDS = 90 * 24 * 60 * 60  # 90 days
+
+def _load_sessions_from_disk():
+    if not os.path.exists(SESSIONS_FILE):
+        return {}
+    try:
+        with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            now = time.time()
+            return {k: v for k, v in data.items() if isinstance(v, (int, float)) and v > now}
+    except Exception:
+        return {}
+
+def _save_sessions_to_disk(sessions):
+    try:
+        now = time.time()
+        valid = {k: v for k, v in sessions.items() if isinstance(v, (int, float)) and v > now}
+        with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(valid, f)
+    except Exception:
+        pass
+
+# Active in-memory session tokens loaded from disk
+ACTIVE_SESSIONS = _load_sessions_from_disk()
 
 
 def hash_password(password: str, salt_bytes: bytes = None) -> tuple[str, str]:
@@ -65,10 +88,11 @@ def get_admin_username() -> str:
 
 def create_session() -> str:
     """
-    Generates a cryptographically secure 32-byte session token with 30-day lifetime.
+    Generates a cryptographically secure 32-byte session token with 90-day persistent lifetime.
     """
     token = secrets.token_hex(32)
     ACTIVE_SESSIONS[token] = time.time() + SESSION_LIFETIME_SECONDS
+    _save_sessions_to_disk(ACTIVE_SESSIONS)
     return token
 
 
@@ -78,12 +102,16 @@ def validate_session(token: str) -> bool:
     """
     if not token or not isinstance(token, str):
         return False
+    global ACTIVE_SESSIONS
+    if token not in ACTIVE_SESSIONS:
+        ACTIVE_SESSIONS = _load_sessions_from_disk()
     expiry = ACTIVE_SESSIONS.get(token)
     if not expiry:
         return False
     now = time.time()
     if now > expiry:
         ACTIVE_SESSIONS.pop(token, None)
+        _save_sessions_to_disk(ACTIVE_SESSIONS)
         return False
     # Slide session expiration window
     ACTIVE_SESSIONS[token] = now + SESSION_LIFETIME_SECONDS
@@ -96,6 +124,7 @@ def invalidate_session(token: str) -> None:
     """
     if token:
         ACTIVE_SESSIONS.pop(token, None)
+        _save_sessions_to_disk(ACTIVE_SESSIONS)
 
 
 def setup_admin(username: str, password: str) -> tuple[bool, str, str]:

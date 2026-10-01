@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.3.0] - 2026-09-29 (Current Stable Milestone)
+## [v2.4.0] - 2026-10-01 (Current Stable Milestone)
+
+> **Milestone Focus:** Ant Design Web Console, Real-time Terminal Log Streaming, Interactive Port Management, Extended Session Persistence, Dynamic KPI Telemetry, and Fleet Mesh Hardening.
+
+### 🎨 Ant Design Inspired Web Console & UX
+- **Ant Design Enterprise Architecture:** Complete user interface overhaul inspired by the clean, ergonomic Ant Design system with refined typography, high-contrast dark/light themes, responsive navigation drawer, and modular cards.
+- **Live Terminal Logs Viewer (`>_`):** Integrated in-browser terminal modal streaming live Paqet Wire transport logs, connection handshakes, and carrier events with auto-scroll and line pruning.
+- **Interactive Port Forwarding Chips:** Re-engineered port chip management with event delegation, click-to-remove interactions, red-tinted hover feedback, and two-way synchronization with Quick Port Tags.
+- **Extended Session Persistence (Remember-Me):** Introduced 90-day persistent session tokens stored in secure HTTP-only cookies and localStorage, eliminating frequent session timeouts.
+- **Dynamic KPI Traffic Telemetry:** Real-time calculation of overall network bandwidth consumption (Total Sent / Received / Cumulative usage) derived directly from live carrier sessions.
+- **Dynamic GeoIP & Node Flags:** Automatic destination flag rendering (🇩🇪 Germany, 🇳🇱 Netherlands, etc.) and real-time jitter/latency metrics in the wire tunnel table.
+
+### 🛡️ Core Security & Fleet Port Safeguards
+- **Critical Port Collision Guard:** Implemented strict backend and UI validation reserving essential host management ports (`22` SSH, `9090` Panel, `7444` Agent Sync) against accidental port forwarding.
+- **Automated Fleet Reloads (Restart Nonces):** Integrated incremental configuration nonces triggering zero-downtime hot reloads across distributed node agents upon tunnel updates.
+- **Multi-Node Wire Carrier Hardening:** Validated concurrent operation across Iran edge, Netherlands exit, and Germany exit nodes with 8 parallel multiplexed streams under Paqet Wire (KCP and RawTCP).
+
+---
+
+## [v2.3.0] - 2026-09-29
 
 > **Milestone Focus:** Enterprise Bento Grid Dashboard, Real-time Traffic Telemetry, Hawal Core v2 Outbound TLS Reverse Tunneling, Multi-Arch CI/CD, and Automated CodeQL Security Scanning.
 

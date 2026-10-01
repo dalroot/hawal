@@ -5,12 +5,14 @@ def validate_tunnel_ports(core_port, server_node_id, current_tunnel_id=None):
     """
     Validates that core_port is not duplicated across active tunnels on the same server node.
     """
+    if int(core_port) in {22, 9090, 7444}:
+        return False, f"پورت {core_port} پورت سیستمی یا پنل مدیریت است و امکان استفاده از آن به عنوان پورت تانل وجود ندارد."
     all_tunnels = list_tunnels()
     for t in all_tunnels:
-        if current_tunnel_id and t["id"] == current_tunnel_id:
+        if current_tunnel_id and str(t.get("id")) == str(current_tunnel_id):
             continue
-        if t["server_node_id"] == server_node_id and int(t["core_port"]) == int(core_port):
-            return False, f"پورت ترانسپورت {core_port} در حال حاضر توسط تانل '{t['name']}' روی همین نود در حال استفاده است."
+        if t.get("server_node_id") == server_node_id and int(t.get("core_port", 0)) == int(core_port):
+            return False, f"پورت ترانسپورت {core_port} در حال حاضر توسط تانل '{t.get('name')}' روی همین نود در حال استفاده است."
     return True, ""
 
 def generate_server_config(tunnel, bind_ip="0.0.0.0"):

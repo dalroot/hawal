@@ -144,8 +144,11 @@ def list_nodes():
         now = time.time()
         for r in rows:
             d = dict(r)
-            # consider offline if last_seen > 15s ago
-            if now - d.get("last_seen", 0) > 15:
+            # consider offline if last_seen == 0 or > 15s ago
+            if d.get("last_seen", 0) == 0:
+                if d.get("status") != "enrolling":
+                    d["status"] = "offline"
+            elif now - d.get("last_seen", 0) > 15:
                 d["status"] = "offline"
             nodes.append(d)
         return nodes
@@ -165,7 +168,7 @@ def save_node(node_id, name, ip, role, token, country_code="GLOBAL", country_nam
     with get_db() as conn:
         conn.execute("""
         INSERT INTO nodes (id, name, ip, role, country_code, country_name, flag, city, token, status, last_seen, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolling', 0, ?)
         ON CONFLICT(id) DO UPDATE SET
             name=excluded.name,
             ip=excluded.ip,
@@ -173,10 +176,8 @@ def save_node(node_id, name, ip, role, token, country_code="GLOBAL", country_nam
             country_code=excluded.country_code,
             country_name=excluded.country_name,
             flag=excluded.flag,
-            city=excluded.city,
-            last_seen=excluded.last_seen,
-            status='online'
-        """, (node_id, name, ip, role, country_code, country_name, flag, city, token, now, now))
+            city=excluded.city
+        """, (node_id, name, ip, role, country_code, country_name, flag, city, token, now))
         conn.commit()
 
 def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country_code=None, country_name=None, flag=None, city=None, net_rx_bytes=None, net_tx_bytes=None, rate_in_mbps=None, rate_out_mbps=None):
