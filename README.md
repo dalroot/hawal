@@ -107,30 +107,6 @@ flowchart TD
     HawalDialer == "Reverse Outbound Stealth Tunnel (PFS: Noise X25519)" ==> CorePort
 ```
 
-
-```text
-╭────────────────────────────────────────────────────────────────────────────────────────╮
-│                               Hawal Topology Overview                                  │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-       Browser / Admin
-              │ (HTTPS)
-              ▼
- ┌──────────────────────────┐        Configuration Sync & Heartbeat       ┌──────────────────────────┐
- │ Hawal Master Panel       │◄───────────────────────────────────────────►│ Foreign Edge Node       │
- │ (Web UI, SQLite DB)      │                  (3–5s)                     │ (/opt/hawal/agent.py)    │
- └──────────────────────────┘                                             └────────────┬─────────────┘
-              ▲                                                                        │
-              │ Sync & Telemetry                                                       │
- ┌────────────┴─────────────┐                                                          │
- │ Iran Edge Node           │              Reverse Outbound Stealth Carrier            │
- │ (/opt/hawal/agent.py)    │══════════════════════════════════════════════════════════╪═════════════════╗
- └────────────┬─────────────┘   (Hawal Core v2.5.1 / Paqet / Backhaul / GOST)          │                 ║
-              │                                                                        ▼                 ║
-              ▼                                                             Target Service (Xray/3X-UI)  ║
-      Client Entry Port                                                      (Listening on 127.0.0.1)    ║
-     (e.g., :443, :8443)                                                                                 ║
-```
-
 ---
 
 ## 🎛️ Tunnel Cores & Selection Guide
