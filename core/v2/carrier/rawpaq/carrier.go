@@ -63,7 +63,7 @@ func (c *Carrier) Dial(ctx context.Context, endpoint carrier.Endpoint, _ carrier
 		_ = packetConn.Close()
 		return nil, err
 	}
-	return newLink(session, packetConn)
+	return newLink(session, packetConn, c.config.WriteTimeout)
 }
 
 func (c *Carrier) Listen(ctx context.Context, bind carrier.Bind, _ carrier.Options) (carrier.Acceptor, error) {
@@ -131,7 +131,7 @@ func (a *acceptor) Accept() (carrier.Link, error) {
 		_ = session.Close()
 		return nil, err
 	}
-	return newLink(session, nil)
+	return newLink(session, nil, a.config.WriteTimeout)
 }
 
 func (a *acceptor) Addr() net.Addr { return a.listener.Addr() }
@@ -150,14 +150,15 @@ func (a *acceptor) Close() error {
 
 type link struct {
 	*kcp.UDPSession
-	packetConn  net.PacketConn
-	id          string
-	established time.Time
-	closeOnce   sync.Once
-	closeErr    error
+	packetConn   net.PacketConn
+	id           string
+	established  time.Time
+	writeTimeout time.Duration
+	closeOnce    sync.Once
+	closeErr     error
 }
 
-func newLink(session *kcp.UDPSession, ownedPacketConn net.PacketConn) (*link, error) {
+func newLink(session *kcp.UDPSession, ownedPacketConn net.PacketConn, writeTimeout time.Duration) (*link, error) {
 	var raw [16]byte
 	if _, err := rand.Read(raw[:]); err != nil {
 		_ = session.Close()
@@ -166,12 +167,25 @@ func newLink(session *kcp.UDPSession, ownedPacketConn net.PacketConn) (*link, er
 		}
 		return nil, fmt.Errorf("rawpaq: generate link ID: %w", err)
 	}
-	return &link{UDPSession: session, packetConn: ownedPacketConn, id: hex.EncodeToString(raw[:]), established: time.Now().UTC()}, nil
+	return &link{
+		UDPSession:   session,
+		packetConn:   ownedPacketConn,
+		id:           hex.EncodeToString(raw[:]),
+		established:  time.Now().UTC(),
+		writeTimeout: writeTimeout,
+	}, nil
 }
 
 func (l *link) ID() string               { return l.id }
 func (l *link) Kind() carrier.Kind       { return carrier.KindRawPaq }
 func (l *link) EstablishedAt() time.Time { return l.established }
+
+func (l *link) Write(b []byte) (int, error) {
+	if l.writeTimeout > 0 {
+		_ = l.UDPSession.SetWriteDeadline(time.Now().Add(l.writeTimeout))
+	}
+	return l.UDPSession.Write(b)
+}
 
 func (l *link) Close() error {
 	l.closeOnce.Do(func() {

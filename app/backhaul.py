@@ -19,8 +19,27 @@ def generate_server_config(tunnel, bind_ip="0.0.0.0"):
     """
     Generates Backhaul server TOML configuration with modern options.
     """
-    ports = tunnel.get("ports", [])
-    ports_toml = "[\n" + ",\n".join([f'  "{p}"' for p in ports]) + "\n]"
+    raw_ports = tunnel.get("ports", [])
+    clean_ports = []
+    for p in raw_ports:
+        p = str(p).strip()
+        if not p:
+            continue
+        if "=" in p:
+            parts = p.split("=", 1)
+            lp = parts[0].strip()
+            rp = parts[1].strip()
+            if ":" in rp:
+                rp = rp.split(":")[-1].strip()
+            if lp == rp:
+                clean_ports.append(lp)
+            else:
+                clean_ports.append(f"{lp}={rp}")
+        elif ":" in p:
+            clean_ports.append(p.split(":")[-1].strip())
+        else:
+            clean_ports.append(p)
+    ports_toml = "[\n" + ",\n".join([f'  "{p}"' for p in clean_ports]) + "\n]"
     
     transport = tunnel.get("transport", "ws")
     token = tunnel.get("token", "")

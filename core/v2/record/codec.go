@@ -30,6 +30,7 @@ const (
 	TypePing
 	TypeGoAway
 	TypeKeyUpdate
+	TypePong
 )
 
 type Flags uint8
@@ -259,7 +260,7 @@ func nonceFor(base []byte, sequence uint64) []byte {
 	return nonce
 }
 
-func validType(t Type) bool { return t >= TypeOpen && t <= TypeKeyUpdate }
+func validType(t Type) bool { return t >= TypeOpen && t <= TypePong }
 
 func writeAll(w io.Writer, data []byte) error {
 	for len(data) > 0 {

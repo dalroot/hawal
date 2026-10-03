@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.4.0] - 2026-10-01 (Current Stable Milestone)
+## [v2.5.1] - 2026-10-03 (Current Stable Milestone)
 
-> **Milestone Focus:** Ant Design Web Console, Real-time Terminal Log Streaming, Interactive Port Management, Extended Session Persistence, Dynamic KPI Telemetry, and Fleet Mesh Hardening.
+> **Milestone Focus:** Hawal Core v2.5.1 Resilient Rawpaq Carrier, Morning Silent-Drop & Freeze Fix, Dead-Link Auto-Recovery, Socket Write Deadlines, and In-Depth DPI / Raw-TCP Research Documentation.
+
+### ⚡ Hawal Core v2.5.1: Anti-Freeze & Resilient Transport Engine
+- **Bidirectional Keepalive (`TypePong`):** Introduced first-class `TypePong` (Type = 9) control record with codec verification, allowing real-time round-trip latency tracking and heartbeat validation.
+- **Dead-Link Auto-Detection & Self-Healing:** Implemented automatic stale link detection (`lastInboundActivity`). If an active tunnel experiences silent packet absorption or ISP routing blackholing (>45 seconds without inbound traffic/pong), the session cleanly tears down and automatically triggers an instant client reconnection.
+- **Socket Write Deadlines & Deadlock Elimination:** Added proactive 10-second `SetWriteDeadline` on the carrier layer and outbound multiplexer pumps, completely eliminating infinite KCP send-window hangs and morning freeze conditions.
+- **Native Rawpaq Carrier with Kernel BPF:** Hardened the high-performance Linux Raw-TCP carrier utilizing kernel cBPF socket filters to evade stateful DPI connection tracking without full 3-way handshake fingerprints.
+- **Privacy-Preserving Telemetry:** Enforced strict zero-user-connection logging across Hawal Core, logging only system lifecycle metrics without storing or leaking end-user IP addresses.
+
+### 📚 Comprehensive DPI & Censorship Research Documentation
+- **Raw-TCP & Paqet Reverse Engineering Study:** Added extensive technical documentation (`docs/research/dpi-2026/raw-tcp-and-paqet-mechanisms.md`) breaking down raw socket packet manipulation, eBPF capture rules, syn-cookie interactions, and DPI bypass mechanisms.
+- **Evidence Ledger & Source Catalog:** Updated experimental findings, Black Hat/academic references, and 2026 censorship countermeasures in `docs/research/dpi-2026/`.
+
+---
+
+## [v2.4.0] - 2026-10-01
 
 ### 🎨 Ant Design Inspired Web Console & UX
 - **Ant Design Enterprise Architecture:** Complete user interface overhaul inspired by the clean, ergonomic Ant Design system with refined typography, high-contrast dark/light themes, responsive navigation drawer, and modular cards.

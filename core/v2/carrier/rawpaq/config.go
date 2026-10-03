@@ -34,6 +34,7 @@ type Config struct {
 	DSCP          int
 	Manual        ManualTuning
 	ReadTimeout   time.Duration
+	WriteTimeout  time.Duration
 }
 
 type ManualTuning struct {
@@ -54,6 +55,7 @@ func DefaultConfig() Config {
 		ReceiveWindow: 1024,
 		DSCP:          46,
 		ReadTimeout:   30 * time.Second,
+		WriteTimeout:  10 * time.Second,
 	}
 }
 
@@ -84,6 +86,9 @@ func (c Config) Validate() error {
 	}
 	if c.ReadTimeout <= 0 || c.ReadTimeout > 10*time.Minute {
 		return errors.New("rawpaq: invalid read timeout")
+	}
+	if c.WriteTimeout <= 0 || c.WriteTimeout > 10*time.Minute {
+		return errors.New("rawpaq: invalid write timeout")
 	}
 	return nil
 }

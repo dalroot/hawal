@@ -16,19 +16,21 @@ import (
 )
 
 var (
-	Version = "2.3.0"
+	Version = "2.5.1"
 )
 
 type ConfigFile struct {
-	Mode        string   `json:"mode"`
-	Carrier     string   `json:"carrier"`
-	BindAddr    string   `json:"bind_addr"`
-	ConnectAddr string   `json:"connect_addr"`
-	Ports       []string `json:"ports"`
-	Token       string   `json:"token"`
-	NoDelay     bool     `json:"nodelay"`
-	InsecureTLS bool     `json:"insecure_tls"`
-	ServerName  string   `json:"server_name"`
+	Mode          string   `json:"mode"`
+	Carrier       string   `json:"carrier"`
+	BindAddr      string   `json:"bind_addr"`
+	ConnectAddr   string   `json:"connect_addr"`
+	Ports         []string `json:"ports"`
+	Token         string   `json:"token"`
+	NoDelay       bool     `json:"nodelay"`
+	InsecureTLS   bool     `json:"insecure_tls"`
+	ServerName    string   `json:"server_name"`
+	InterfaceName string   `json:"interface"`
+	RouterMAC     string   `json:"router_mac"`
 }
 
 func main() {
@@ -41,24 +43,28 @@ func main() {
 	noDelay := flag.Bool("nodelay", true, "Enable TCP_NODELAY for lowest latency")
 	insecureTLS := flag.Bool("insecure", true, "Allow unverified certificates in TLS carrier")
 	serverName := flag.String("sni", "", "ServerName (SNI) for TLS carrier camouflage")
+	ifaceFlag := flag.String("iface", "", "Network interface for raw packet carrier (auto-detected if empty)")
+	routerMACFlag := flag.String("router-mac", "", "Router/Gateway MAC address (auto-detected if empty)")
 	configPath := flag.String("config", "", "Path to JSON configuration file")
 	showVersion := flag.Bool("version", false, "Show Hawal Core version")
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("Hawal Stealth Core (هه‌واڵ) v%s (Hybrid Backhaul+GOST+Paqet)\n", strings.TrimPrefix(Version, "v"))
+		fmt.Printf("Hawal Stealth Core (هه‌واڵ) v%s (Native Raw-TCP & Kernel BPF Engine)\n", strings.TrimPrefix(Version, "v"))
 		return
 	}
 
 	cfg := ConfigFile{
-		Mode:        *mode,
-		Carrier:     *carrierFlag,
-		BindAddr:    *bindAddr,
-		ConnectAddr: *connectAddr,
-		Token:       *token,
-		NoDelay:     *noDelay,
-		InsecureTLS: *insecureTLS,
-		ServerName:  *serverName,
+		Mode:          *mode,
+		Carrier:       *carrierFlag,
+		BindAddr:      *bindAddr,
+		ConnectAddr:   *connectAddr,
+		Token:         *token,
+		NoDelay:       *noDelay,
+		InsecureTLS:   *insecureTLS,
+		ServerName:    *serverName,
+		InterfaceName: *ifaceFlag,
+		RouterMAC:     *routerMACFlag,
 	}
 
 	if *portsFlag != "" {
@@ -105,8 +111,10 @@ func main() {
 		Ports:       cfg.Ports,
 		Token:       cfg.Token,
 		NoDelay:     cfg.NoDelay,
-		InsecureTLS: cfg.InsecureTLS,
-		ServerName:  cfg.ServerName,
+		InsecureTLS:   cfg.InsecureTLS,
+		ServerName:    cfg.ServerName,
+		InterfaceName: cfg.InterfaceName,
+		RouterMAC:     cfg.RouterMAC,
 	}
 
 	eng, err := engine.NewEngine(engineCfg)

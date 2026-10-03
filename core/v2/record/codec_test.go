@@ -56,6 +56,22 @@ func TestCodecRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCodecPongRoundTrip(t *testing.T) {
+	client, server := codecPair(t, DefaultOptions())
+	var wire bytes.Buffer
+	want := Record{Type: TypePong, Flags: 0, StreamID: 0, Payload: nil}
+	if err := client.Write(&wire, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := server.Read(&wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Type != TypePong || got.StreamID != 0 {
+		t.Fatalf("Read() = %#v, want TypePong", got)
+	}
+}
+
 func TestCodecUsesBucketsAndNoMagicPrefix(t *testing.T) {
 	opts := DefaultOptions()
 	opts.MaskLength = false

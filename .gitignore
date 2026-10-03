@@ -17,3 +17,5 @@ venv/
 *.bak
 
 .skills/
+HANDOFF.md
+scripts/

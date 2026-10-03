@@ -48,6 +48,10 @@
 | S28 | GOST Core | go-gost | دسترسی ۲۰۲۶ | [مخزن رسمی](https://github.com/go-gost/core) | معماری listener/connector ماژولار |
 | S29 | rathole Transport | rathole-org | دسترسی ۲۰۲۶ | [مستندات رسمی](https://github.com/rathole-org/rathole/blob/main/docs/transport.md) | TLS/Noise؛ اثر wire باید جدا سنجیده شود |
 | S30 | Xray-core releases | XTLS | انتشارهای ۲۰۲۶ | [Releaseهای رسمی](https://github.com/XTLS/Xray-core/releases) | کشف قابلیت‌های Finalmask/XHTTP/ECH؛ نه شاهد موفقیت در ایران |
+| S31 | Geneva: Evolving Censorship Evasion at the Transport Layer | Kevin Bock et al.؛ ACM CCS / Black Hat USA | ۲۰۲۰ | [صفحه مقاله و ارائه Black Hat](https://geneva.cs.umd.edu/papers/geneva_ccs19.pdf) | مبنای نظری دور زدن TCB دستگاه‌های DPI با دستکاری فریم‌های خام و پرچم‌های TCP |
+| S32 | Insertion, Evasion, and Denial of Service: Eluding Network Intrusion Detection | Thomas H. Ptacek, Timothy N. Newsham | ۱۹۹۸ | [گزارش پژوهشی تاریخی](http://insecure.org/stf/secnet_ids/secnet_ids.html) | تفاوت تحلیل جریان میان فایروال میانی و مقصد نهایی در بازسازی استک TCP |
+| S33 | udp2raw-tunnel & FakeTCP | Wang Yu | ۲۰۱۷–۲۰۲۰ | [مخزن رسمی](https://github.com/wangyu-/udp2raw-tunnel) | مبنای کپسوله‌سازی بسته‌های داده درون هدرهای TCP ساختگی با سوکت خام |
+| S34 | paqet: transport over raw packets | hanselime | ۲۰۲۴–۲۰۲۶ | [مخزن رسمی](https://github.com/hanselime/paqet) | پیاده‌سازی کاربردی KCP بر بستر فریم‌های خام لایه ۲ اترنت |
 
 ## منابعی که عمداً مبنای نتیجه نشدند
 

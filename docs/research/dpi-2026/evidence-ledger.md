@@ -16,6 +16,8 @@
 | IR-08 | خاموشی/فهرست‌سفید می‌تواند با باقی‌ماندن BGP رخ دهد | Preprint/داده عمومی | پژوهش‌های خاموشی ۲۰۲۵–۲۰۲۶ و IODA | متوسط | بخشی هنوز داوری نشده است |
 | IR-09 | مسیر فعلی دو سرور IP-block کامل نیست چون Ping و Paqet برقرارند | مشاهدهٔ محلی | لاگ و تست سرورهای تحت کنترل، سپتامبر ۲۰۲۶ | متوسط | ICMP/Paqet علت شکست TCP معمولی را مشخص نمی‌کنند |
 | IR-10 | شکست Backhaul/GOST/Hawal ناشی از DPI است | فرضیه | تجربهٔ مسیر فعلی | پایین تا زمان Capture | port policy، MTU، firewall محلی و service failure باید حذف شوند |
+| IR-11 | کرنل لینوکس سمت کلاینت (ایران) روی Raw TCP بسته ناخواسته RST می‌فرستد؛ رول‌های NOTRACK و DROP RST در جدول mangle/raw پایداری و سرعت هندشیک را تضمین می‌کنند | مشاهدهٔ مستقیم عملیاتی | لاگ فایروال و تست TLS handshake روی سرور ایران و هلند، اکتبر ۲۰۲۶ | بالا | مربوط به کارکرد پکت‌های Raw در بستر Conntrack لینوکس؛ باید روی هر دو سمت کلاینت و سرور فعال باشد |
+| IR-12 | پروبینگ فعال مکرر (ICMP/TCP Syn Probe دوره‌ای کوتاه) شناسایی رفتاری DPI را تسریع می‌کند؛ پینگ مبتنی بر تاخیر درون‌کانال کنترل (In-Band RTT) بدون افزودن پکت به سیم безопас‌تر است | تحلیل معماری و استاندارد | الزامات Hawal Core v2 و آزمون‌های رفتاری DPI، اکتبر ۲۰۲۶ | بالا | دوره‌های زمانی باید محتاطانه (بالای ۶۰ ثانیه) یا مبتنی بر تقاضای داشبورد باشند |
 | CN-01 | GFW ترافیک fully encrypted را با heuristicهای اولین Payload تشخیص داده است | مقاله | [USENIX Security 2023](https://www.usenix.org/system/files/usenixsecurity23-wu-mingshi.pdf) | بالا | Rule استنباط‌شده و مربوط به بازهٔ اندازه‌گیری است |
 | CN-02 | سیگنال‌ها شامل popcount، ASCII position/fraction و protocol exemption هستند | مقاله و بازتولید | USENIX Security 2023 | بالا | classifierهای بعدی ممکن است گسترده‌تر باشند |
 | CN-03 | GFW برای Shadowsocks از passive trigger سپس active probing استفاده کرده است | مقاله | [GFW Report/IMC 2020](https://gfw.report/publications/imc20/en/) | بالا تاریخی | رفتار امروز می‌تواند تغییر کرده باشد |
@@ -46,6 +48,11 @@
 | HWL-05 | reconnect سه‌ثانیه‌ای و TCP keepalive سی‌ثانیه‌ای ثابت‌اند | ممیزی سورس | `core/client/client.go` | قطعی | OS ممکن است جزئیات Wire را تغییر دهد |
 | XRY-01 | Xray 2026 Finalmask، fragment/noise، Sudoku، XHTTP/3 و browser header profile دارد | Release رسمی | [Xray releases](https://github.com/XTLS/Xray-core/releases) | بالا برای وجود قابلیت | اثربخشی در ایران ثابت نشده است |
 | XRY-02 | composition قابلیت‌های جدید می‌تواند regression و fingerprint جدید بسازد | Issueهای رسمی | Xray issues 2026 | متوسط | Issue لزوماً همه نسخه‌ها را درگیر نمی‌کند |
+| RAW-01 | فریم‌های خام TCP با پرچم‌های PA (Push/Ack) جدول TCB سخت‌افزارهای DPI را desynchronize کرده و وارد حالت Fail-Open می‌کنند | مقاله و ارائه کنفرانس | [Geneva، Black Hat USA 2020 و USENIX Security](https://geneva.cs.umd.edu/papers/geneva_ccs19.pdf) | بالا | نیازمند قوانین NOTRACK و DROP RST در فایروال لینوکس است |
+| RAW-02 | در پروتکل KCP بدون تنظیم DeadLink و WriteDeadline، افت پکت‌ها و پر شدن snd_wnd به قفل نامحدود (Infinite Block) در دستور Write منجر می‌شود | مشاهده و لاگ پروداکشن | لاگ‌های زنده Hawal v2.5 روی سرور ایران و هلند، ۳ اکتبر ۲۰۲۶ | قطعی | به صراحت در رفتار بافر kcp-go تأیید شد |
+| RAW-03 | قفل شدن متد Write در مالتی‌پلکسر باعث اشباع صف فریم‌های کنترلی (سقف ۱۲۸ فریم) و خطای «mux: queue is full» می‌شود | بازتولید در کد و لاگ | `session.go` و `scheduler.go` | قطعی | مانع باز شدن هر استریم جدید برای پورت‌های فورواردینگ |
+| RAW-04 | پینگ یک‌طرفه بدون پاسخ متقابل Pong توانایی تشخیص قطع خاموش مسیر (Silent Blackhole) را ندارد و سشن را زامبی نگه می‌دارد | تحلیل سیستم | آزمون لاگ Hawal v2.5، اکتبر ۲۰۲۶ | قطعی | نیازمند پینگ/پونگ دوطرفه با سقف زمانی ۳۰ ثانیه برای Auto-Reconnect |
+| RAW-05 | فیلتر سخت‌افزاری Classic BPF با کاهش ترافیک ورودی خام از سرریز بافر حلقه دریافت سوکت (SO_RCVBUF) جلوگیری می‌کند | مقاله و بنچمارک | آزمون پردازش درایور لینوکس AF_PACKET | بالا | فیلتر باید مشخصاً روی پورت و پروتکل دقیق تنظیم شود |
 
 ## شکاف‌های باز
 

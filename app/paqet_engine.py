@@ -41,7 +41,9 @@ def generate_paqet_server_config(tunnel):
     conn = int(tunnel.get("mux_con", 4))
     raw_chan = int(tunnel.get("channel_size", 1150))
     mtu = raw_chan if raw_chan <= 1400 else 1150
-    kcp_mode = "fast"
+    kcp_mode = str(tunnel.get("kcp_mode") or "normal").strip().lower()
+    if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
+        kcp_mode = "normal"
     block_cipher = "aes-128-gcm"
 
     yaml_content = f"""# Hawal Paqet Server Config (Auto-Generated)
@@ -66,8 +68,8 @@ network:
 transport:
   protocol: "kcp"
   conn: {conn}
-  tcpbuf: 8192
-  udpbuf: 4096
+  tcpbuf: 65536
+  udpbuf: 65536
   kcp:
     key: "{token}"
     mode: "{kcp_mode}"
@@ -87,7 +89,9 @@ def generate_paqet_client_config(tunnel, server_ip):
     conn = int(tunnel.get("mux_con", 4))
     raw_chan = int(tunnel.get("channel_size", 1150))
     mtu = raw_chan if raw_chan <= 1400 else 1150
-    kcp_mode = "fast"
+    kcp_mode = str(tunnel.get("kcp_mode") or "normal").strip().lower()
+    if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
+        kcp_mode = "normal"
     block_cipher = "aes-128-gcm"
 
     ports = parse_ports_list(tunnel.get("ports", []))
@@ -129,8 +133,8 @@ server:
 transport:
   protocol: "kcp"
   conn: {conn}
-  tcpbuf: 8192
-  udpbuf: 4096
+  tcpbuf: 65536
+  udpbuf: 65536
   kcp:
     key: "{token}"
     mode: "{kcp_mode}"

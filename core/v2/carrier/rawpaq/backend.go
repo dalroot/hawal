@@ -52,3 +52,10 @@ type PacketBackend interface {
 	Preflight(context.Context, PacketRequest) (PreflightReport, error)
 	Open(context.Context, PacketRequest) (net.PacketConn, error)
 }
+
+// DefaultBackend returns the native LinuxRawBackend on Linux when running with
+// appropriate capabilities/root, falling back to UDPBackend otherwise.
+func DefaultBackend() PacketBackend {
+	return defaultPlatformBackend()
+}
+

@@ -191,7 +191,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
           </svg>
-          <span class="version-text num">v2.4.0</span>
+          <span class="version-text num">v2.5.0</span>
         </a>
       </div>
     </aside>
@@ -214,7 +214,7 @@
                 <span class="status-dot"></span>
                 <span>Paqet Wire · Connected</span>
               </span>
-              <span class="version-tag">Core v2.4.0</span>
+              <span class="version-tag">Core v2.5.0</span>
             </div>
 
             <!-- Functional Operational Buttons -->
@@ -687,6 +687,13 @@
               <span>Refresh</span>
             </button>
 
+            <button class="action-btn" id="btnRestartAllTunnels" title="Restart all wire tunnels">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              <span>Restart All</span>
+            </button>
+
             <button class="btn-primary" id="btnCreateTunnelPage" title="Create a new wire tunnel">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -762,183 +769,9 @@
                 </tr>
               </thead>
               <tbody id="tunnelsTableBody">
-                <!-- Row 1: NL Main -->
-                <tr data-status="active">
-                  <td class="cell-id num" style="text-align: center;">1</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit tunnel">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="Terminal logs">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="4 7 10 12 4 17"></polyline>
-                          <line x1="12" y1="17" x2="20" y2="17"></line>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="5" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="19" cy="12" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <label class="toggle-switch" title="Toggle tunnel state">
-                      <input type="checkbox" checked class="tunnel-toggle-input">
-                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </label>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇳🇱</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">NL 10G Main</span>
-                        <span class="remark-meta num">tun0 · 10.0.8.1</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="cell-port num">2088</td>
-                  <td class="cell-transport">
-                    <div class="badge-cluster">
-                      <span class="badge badge-hawal">Hawal v2</span>
-                      <span class="badge badge-smuggle">Smuggle</span>
-                    </div>
-                  </td>
-                  <td class="cell-traffic num">
-                    <span class="traffic-val">118.18 GB</span>
-                    <span class="traffic-limit">/ ∞</span>
-                  </td>
-                  <td class="cell-speed" style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="speed-rate num">↑ 715.6 KB/s · ↓ 36.2 KB/s</span>
-                      <span class="ping-badge num">34ms</span>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Row 2: NL Standby -->
-                <tr data-status="active">
-                  <td class="cell-id num" style="text-align: center;">2</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit tunnel">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="Terminal logs">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="4 7 10 12 4 17"></polyline>
-                          <line x1="12" y1="17" x2="20" y2="17"></line>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="5" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="19" cy="12" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <label class="toggle-switch" title="Toggle tunnel state">
-                      <input type="checkbox" checked class="tunnel-toggle-input">
-                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </label>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇳🇱</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">NL Standby Mesh</span>
-                        <span class="remark-meta num">tun1 · 10.0.8.2</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="cell-port num">2089</td>
-                  <td class="cell-transport">
-                    <div class="badge-cluster">
-                      <span class="badge badge-paqet">Paqet</span>
-                      <span class="badge badge-rawtcp">Raw-TCP</span>
-                    </div>
-                  </td>
-                  <td class="cell-traffic num">
-                    <span class="traffic-val">4.71 GB</span>
-                    <span class="traffic-limit">/ ∞</span>
-                  </td>
-                  <td class="cell-speed" style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="speed-rate num">↑ 9.70 KB/s · ↓ 30.6 KB/s</span>
-                      <span class="ping-badge num">36ms</span>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Row 3: DE Frankfurt -->
-                <tr data-status="standby">
-                  <td class="cell-id num" style="text-align: center;">3</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit tunnel">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="Terminal logs">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="4 7 10 12 4 17"></polyline>
-                          <line x1="12" y1="17" x2="20" y2="17"></line>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="5" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="19" cy="12" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <label class="toggle-switch" title="Toggle tunnel state">
-                      <input type="checkbox" class="tunnel-toggle-input">
-                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </label>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇩🇪</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">DE Frankfurt Core</span>
-                        <span class="remark-meta num">tun2 · 10.0.8.3</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="cell-port num">2090</td>
-                  <td class="cell-transport">
-                    <div class="badge-cluster">
-                      <span class="badge badge-gost">Gost</span>
-                      <span class="badge badge-kcp">KCP</span>
-                    </div>
-                  </td>
-                  <td class="cell-traffic num">
-                    <span class="traffic-val">2.24 GB</span>
-                    <span class="traffic-limit">/ ∞</span>
-                  </td>
-                  <td class="cell-speed" style="text-align: right;">
-                    <div class="speed-pill-wrap idle">
-                      <span class="speed-rate num">—</span>
-                      <span class="ping-badge num ping-standby">42ms</span>
-                    </div>
+                <tr>
+                  <td colspan="8" style="text-align:center; padding:36px; color:var(--text-sub);">
+                    Loading active wire tunnels...
                   </td>
                 </tr>
               </tbody>
@@ -980,7 +813,7 @@
                 <line x1="6" y1="6" x2="6.01" y2="6"></line>
                 <line x1="6" y1="18" x2="6.01" y2="18"></line>
               </svg>
-              <span class="num" id="nodeStatTotal">4</span>
+              <span class="num" id="nodeStatTotal">0</span>
             </div>
           </div>
           <div class="xui-stat-col">
@@ -989,7 +822,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 17px; height: 17px;">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span class="num" id="nodeStatOnline">3</span>
+              <span class="num" id="nodeStatOnline">0</span>
             </div>
           </div>
           <div class="xui-stat-col">
@@ -1000,7 +833,7 @@
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
-              <span class="num" id="nodeStatOffline">1</span>
+              <span class="num" id="nodeStatOffline">0</span>
             </div>
           </div>
           <div class="xui-stat-col">
@@ -1009,7 +842,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 17px; height: 17px;">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
               </svg>
-              <span class="num" id="nodeStatAvgLatency">23</span>
+              <span class="num" id="nodeStatAvgLatency">—</span>
               <span style="font-size: 13px; font-weight: normal; color: var(--text-dim); margin-left: -2px;">ms</span>
             </div>
           </div>
@@ -1064,219 +897,9 @@
                 </tr>
               </thead>
               <tbody id="nodesTableBody">
-                <!-- Node 1 -->
-                <tr data-role="exit" data-status="online">
-                  <td class="cell-id num" style="text-align: center;">1</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit node">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-setup" title="View setup script">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-more" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="5" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="19" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <span class="node-status-pill online"><span class="pulse-dot"></span> Online</span>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇳🇱</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">NL Amsterdam Core-1</span>
-                        <span class="remark-meta num">Amsterdam, Netherlands · 10 Gbps Port</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="badge badge-hawal">Foreign Exit</span>
-                  </td>
-                  <td class="num" style="font-family: var(--font-mono); font-size: 12px;">192.209.62.115:8443</td>
-                  <td><span class="badge badge-smuggle">2 Tunnels</span></td>
-                  <td style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="ping-badge num node-ping-val">34ms</span>
-                    </div>
-                  </td>
-                  <td style="text-align: right;" class="num">
-                    <div style="font-size: 11.5px; font-weight: 600;">118.2 GB</div>
-                    <div style="font-size: 10.5px; color: var(--text-sub);">CPU 14% · RAM 22%</div>
-                  </td>
-                </tr>
-
-                <!-- Node 2 -->
-                <tr data-role="exit" data-status="online">
-                  <td class="cell-id num" style="text-align: center;">2</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit node">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-setup" title="View setup script">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-more" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="5" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="19" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <span class="node-status-pill online"><span class="pulse-dot"></span> Online</span>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇩🇪</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">DE Frankfurt Edge</span>
-                        <span class="remark-meta num">Frankfurt, Germany · Hetzner Cloud</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="badge badge-hawal">Foreign Exit</span>
-                  </td>
-                  <td class="num" style="font-family: var(--font-mono); font-size: 12px;">159.69.81.44:8443</td>
-                  <td><span class="badge badge-smuggle">1 Tunnel</span></td>
-                  <td style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="ping-badge num node-ping-val">29ms</span>
-                    </div>
-                  </td>
-                  <td style="text-align: right;" class="num">
-                    <div style="font-size: 11.5px; font-weight: 600;">84.5 GB</div>
-                    <div style="font-size: 10.5px; color: var(--text-sub);">CPU 8% · RAM 18%</div>
-                  </td>
-                </tr>
-
-                <!-- Node 3 -->
-                <tr data-role="bridge" data-status="online">
-                  <td class="cell-id num" style="text-align: center;">3</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit node">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-setup" title="View setup script">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-more" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="5" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="19" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <span class="node-status-pill online"><span class="pulse-dot"></span> Online</span>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇮🇷</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">IR Tehran Asiatech</span>
-                        <span class="remark-meta num">Tehran, Iran · Domestic Ingress Inbound</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="badge badge-gost">Iran Bridge</span>
-                  </td>
-                  <td class="num" style="font-family: var(--font-mono); font-size: 12px;">5.202.7.123:8443</td>
-                  <td><span class="badge badge-smuggle">2 Tunnels</span></td>
-                  <td style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="ping-badge num node-ping-val">12ms</span>
-                    </div>
-                  </td>
-                  <td style="text-align: right;" class="num">
-                    <div style="font-size: 11.5px; font-weight: 600;">202.7 GB</div>
-                    <div style="font-size: 10.5px; color: var(--text-sub);">CPU 26% · RAM 31%</div>
-                  </td>
-                </tr>
-
-                <!-- Node 4 -->
-                <tr data-role="bridge" data-status="standby">
-                  <td class="cell-id num" style="text-align: center;">4</td>
-                  <td class="cell-menu">
-                    <div class="menu-action-cluster">
-                      <button class="menu-btn-boxed" title="Edit node">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-setup" title="View setup script">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                      </button>
-                      <button class="menu-btn-icon btn-node-more" title="More options">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="5" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
-                          <circle cx="12" cy="19" r="1.5" fill="currentColor"></circle>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td style="text-align: center;">
-                    <span class="node-status-pill standby"><span class="pulse-dot"></span> Standby</span>
-                  </td>
-                  <td class="cell-remark">
-                    <div class="remark-wrap">
-                      <span class="tunnel-flag">🇮🇷</span>
-                      <div class="remark-text-group">
-                        <span class="remark-title">IR Shiraz Mokhaberat</span>
-                        <span class="remark-meta num">Shiraz, Iran · Backup Ingress Hop</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="badge badge-gost">Iran Bridge</span>
-                  </td>
-                  <td class="num" style="font-family: var(--font-mono); font-size: 12px;">185.143.232.10:8443</td>
-                  <td><span class="badge badge-smuggle">1 Tunnel</span></td>
-                  <td style="text-align: right;">
-                    <div class="speed-pill-wrap">
-                      <span class="ping-badge num node-ping-val">18ms</span>
-                    </div>
-                  </td>
-                  <td style="text-align: right;" class="num">
-                    <div style="font-size: 11.5px; font-weight: 600;">14.2 GB</div>
-                    <div style="font-size: 10.5px; color: var(--text-sub);">CPU 5% · RAM 12%</div>
+                <tr>
+                  <td colspan="9" style="text-align:center; padding:36px; color:var(--text-sub);">
+                    Loading mesh nodes...
                   </td>
                 </tr>
               </tbody>
@@ -1375,8 +998,8 @@
                 <div class="engine-card-inner">
                   <span class="engine-icon">⚡</span>
                   <div class="engine-info">
-                    <strong class="engine-name">Hawal Core v2</strong>
-                    <span class="engine-desc">Anti-DPI Shaper &amp; Mux</span>
+                    <strong class="engine-name">Hawal Core v2.5</strong>
+                    <span class="engine-desc">Native Raw-TCP &amp; Anti-DPI Mux</span>
                   </div>
                 </div>
               </label>
@@ -1979,6 +1602,12 @@
       </svg>
       <span>Clone Tunnel</span>
     </button>
+    <button type="button" class="dropdown-item" data-action="restart">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+      <span>Restart Tunnel</span>
+    </button>
     <button type="button" class="dropdown-item" data-action="reset-traffic">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -2345,7 +1974,8 @@
       const filterValue = activeTab ? activeTab.getAttribute('data-filter') : 'all';
       const searchTerm = (tunnelsSearchInput ? tunnelsSearchInput.value : '').toLowerCase().trim();
 
-      tableRows.forEach(row => {
+      const currentRows = document.querySelectorAll('#tunnelsTableBody tr');
+      currentRows.forEach(row => {
         const status = row.getAttribute('data-status') || '';
         const text = row.innerText.toLowerCase();
 
@@ -2480,7 +2110,14 @@
         document.querySelectorAll('.engine-card').forEach(card => card.classList.remove('active'));
         const parentCard = radio.closest('.engine-card');
         if (parentCard) parentCard.classList.add('active');
-        updateEngineUi(engine);
+        if (tunObj && tunObj.transport) {
+          updateEngineUi(engine, tunObj.transport);
+          if (selectCarrier) {
+            selectCarrier.value = tunObj.transport;
+          }
+        } else {
+          updateEngineUi(engine);
+        }
       }
 
       // Populate ports chip container
@@ -2500,6 +2137,11 @@
         updateQuickTagStates();
       }
 
+      if (tunObj && tunObj.kcp_mode) {
+        const kcpSel = document.getElementById('cfgPaqetKcp');
+        if (kcpSel) kcpSel.value = tunObj.kcp_mode;
+      }
+
       if (addTunnelForm) addTunnelForm.setAttribute('data-editing-id', tunnelId);
       if (addTunnelModal) addTunnelModal.style.display = 'flex';
     }
@@ -2513,6 +2155,42 @@
 
     if (btnCreateTunnel) btnCreateTunnel.addEventListener('click', openModal);
     if (btnCreateTunnelPage) btnCreateTunnelPage.addEventListener('click', openModal);
+
+    const btnRefreshTunnels = document.getElementById('btnRefreshTunnels');
+    if (btnRefreshTunnels) {
+      btnRefreshTunnels.addEventListener('click', async () => {
+        try {
+          showToast('Refreshing tunnel telemetry...');
+          const res = await API.getTunnels();
+          const tunnels = (res && Array.isArray(res.tunnels)) ? res.tunnels : (Array.isArray(res) ? res : []);
+          LIVE_TUNNELS = tunnels;
+          renderRealTunnels(tunnels);
+          showToast('Telemetry refreshed.');
+        } catch (e) {
+          showToast(`Refresh failed: ${e.message}`, 'error');
+        }
+      });
+    }
+
+    const btnRestartAllTunnels = document.getElementById('btnRestartAllTunnels');
+    if (btnRestartAllTunnels) {
+      btnRestartAllTunnels.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to restart all wire tunnel carrier agents across all nodes?')) {
+          return;
+        }
+        try {
+          showToast('Broadcasting restart signal to all tunnel agents...');
+          const res = await API.restartAllAgents();
+          if (res.success) {
+            showToast(`Restart signal sent to ${res.nodes || 0} node agents.`);
+          } else {
+            showToast(`Restart failed: ${res.error || 'Server error'}`, 'error');
+          }
+        } catch (err) {
+          showToast(`Restart request error: ${err.message}`, 'error');
+        }
+      });
+    }
     if (topbarNewTunnelBtn) {
       topbarNewTunnelBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -2550,61 +2228,100 @@
     // Modal Engine Specs & Dynamic Ant Design Style Settings
     const ENGINE_SPECS = {
       hawal: {
-        name: 'Hawal Core v2',
+        name: 'Hawal Core v2.5',
         carriers: [
-          { val: 'tls', label: '🔒 TLS 1.3 Mux (Recommended)' },
-          { val: 'stealth', label: '⚡ Stealth Multi-Stream (Adaptive Noise)' },
-          { val: 'rawtcp', label: '🛡️ Raw-TCP Smuggle' }
+          { val: 'rawtcp', label: '🛡️ Native Raw-TCP & Kernel BPF (v2.5.0 Recommended)' },
+          { val: 'tls', label: '🔒 TLS 1.3 Mux (Legacy Camouflage)' },
+          { val: 'stealth', label: '⚡ Stealth Multi-Stream (Adaptive Noise)' }
         ],
-        badgeHtml: '<span class="badge badge-hawal">Hawal v2</span> <span class="badge badge-smuggle">Smuggle</span>',
-        renderSettings: () => `
-          <div class="form-row-item">
-            <div class="form-row-label">
-              <span>SNI Mask Domain</span>
-              <span class="form-help-icon" title="Server Name Indication header to disguise handshake">?</span>
+        badgeHtml: '<span class="badge badge-hawal">Hawal v2.5</span> <span class="badge badge-smuggle">Native Raw</span>',
+        renderSettings: (carrier = 'rawtcp') => {
+          if (carrier === 'rawtcp') {
+            return `
+              <div class="form-row-item">
+                <div class="form-row-label">
+                  <span>MTU Channel Size</span>
+                  <span class="form-help-icon" title="Maximum Transmission Unit size to prevent cellular fragmentation">?</span>
+                </div>
+                <div class="form-row-control">
+                  <input type="number" id="cfgHawalMtu" class="form-input num" value="1350">
+                </div>
+              </div>
+              <div class="form-row-item">
+                <div class="form-row-label">
+                  <span>Anti-DPI Padding &amp; Noise</span>
+                  <span class="form-help-icon" title="Add dynamic packet size entropy to defeat length-based DPI classification">?</span>
+                </div>
+                <div class="form-row-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked id="cfgHawalPadding">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-row-item">
+                <div class="form-row-label">
+                  <span>TCP NoDelay</span>
+                  <span class="form-help-icon" title="Disable Nagle algorithm for low latency interactive packets">?</span>
+                </div>
+                <div class="form-row-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked id="cfgHawalNodelay">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                  </label>
+                </div>
+              </div>
+            `;
+          }
+          return `
+            <div class="form-row-item">
+              <div class="form-row-label">
+                <span>SNI Mask Domain</span>
+                <span class="form-help-icon" title="Server Name Indication header to disguise handshake">?</span>
+              </div>
+              <div class="form-row-control">
+                <input type="text" id="cfgHawalSni" class="form-input num" value="www.cloudflare.com">
+              </div>
             </div>
-            <div class="form-row-control">
-              <input type="text" id="cfgHawalSni" class="form-input num" value="www.cloudflare.com">
+            <div class="form-row-item">
+              <div class="form-row-label">
+                <span>Multi-Stream Count</span>
+                <span class="form-help-icon" title="Number of parallel TCP streams for wire multiplexing">?</span>
+              </div>
+              <div class="form-row-control">
+                <select id="cfgHawalStreams" class="form-select num">
+                  <option value="4">4 Parallel Streams</option>
+                  <option value="8" selected>8 Parallel Streams</option>
+                  <option value="16">16 Parallel Streams</option>
+                </select>
+              </div>
             </div>
-          </div>
-          <div class="form-row-item">
-            <div class="form-row-label">
-              <span>Multi-Stream Count</span>
-              <span class="form-help-icon" title="Number of parallel TCP streams for wire multiplexing">?</span>
+            <div class="form-row-item">
+              <div class="form-row-label">
+                <span>Anti-DPI Padding &amp; Noise</span>
+                <span class="form-help-icon" title="Add dynamic packet size entropy to defeat length-based DPI classification">?</span>
+              </div>
+              <div class="form-row-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" checked id="cfgHawalPadding">
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+              </div>
             </div>
-            <div class="form-row-control">
-              <select id="cfgHawalStreams" class="form-select num">
-                <option value="4">4 Parallel Streams</option>
-                <option value="8" selected>8 Parallel Streams</option>
-                <option value="16">16 Parallel Streams</option>
-              </select>
+            <div class="form-row-item">
+              <div class="form-row-label">
+                <span>TCP NoDelay</span>
+                <span class="form-help-icon" title="Disable Nagle algorithm for low latency interactive packets">?</span>
+              </div>
+              <div class="form-row-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" checked id="cfgHawalNodelay">
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+              </div>
             </div>
-          </div>
-          <div class="form-row-item">
-            <div class="form-row-label">
-              <span>Anti-DPI Padding &amp; Noise</span>
-              <span class="form-help-icon" title="Add dynamic packet size entropy to defeat length-based DPI classification">?</span>
-            </div>
-            <div class="form-row-control">
-              <label class="toggle-switch">
-                <input type="checkbox" checked id="cfgHawalPadding">
-                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-              </label>
-            </div>
-          </div>
-          <div class="form-row-item">
-            <div class="form-row-label">
-              <span>TCP NoDelay</span>
-              <span class="form-help-icon" title="Disable Nagle algorithm for low latency interactive packets">?</span>
-            </div>
-            <div class="form-row-control">
-              <label class="toggle-switch">
-                <input type="checkbox" checked id="cfgHawalNodelay">
-                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-              </label>
-            </div>
-          </div>
-        `
+          `;
+        }
       },
       paqet: {
         name: 'Paqet Engine',
@@ -2630,9 +2347,10 @@
             </div>
             <div class="form-row-control">
               <select id="cfgPaqetKcp" class="form-select">
-                <option value="fast" selected>Fast (Low Latency)</option>
-                <option value="normal">Normal (Balanced)</option>
-                <option value="extreme">Extreme (High Loss Resilient)</option>
+                <option value="normal" selected>Normal (کم‌مصرف و پایدار)</option>
+                <option value="fast">Fast (سرعت بالا - مصرف ترافیک بیشتر)</option>
+                <option value="fast2">Fast 2</option>
+                <option value="fast3">Fast 3</option>
               </select>
             </div>
           </div>
@@ -2747,18 +2465,28 @@
     };
 
     const selectCarrier = document.getElementById('selectCarrier');
-    const engineSpecificSettings = document.getElementById('engineSpecificSettings');
-
-    function updateEngineUi(engineKey) {
+    function updateEngineUi(engineKey, currentCarrier = null) {
       const spec = ENGINE_SPECS[engineKey] || ENGINE_SPECS.hawal;
       if (selectCarrier) {
-        selectCarrier.innerHTML = spec.carriers.map((c, i) => 
-          `<option value="${c.val}" ${i === 0 ? 'selected' : ''}>${c.label}</option>`
-        ).join('');
+        selectCarrier.innerHTML = spec.carriers.map((c, i) => {
+          const isSel = currentCarrier ? (c.val === currentCarrier) : (i === 0);
+          return `<option value="${c.val}" ${isSel ? 'selected' : ''}>${c.label}</option>`;
+        }).join('');
       }
       if (engineSpecificSettings) {
-        engineSpecificSettings.innerHTML = spec.renderSettings();
+        const activeCarrier = currentCarrier || (selectCarrier ? selectCarrier.value : 'rawtcp');
+        engineSpecificSettings.innerHTML = spec.renderSettings ? spec.renderSettings(activeCarrier) : '';
       }
+    }
+
+    if (selectCarrier) {
+      selectCarrier.addEventListener('change', () => {
+        const engine = document.querySelector('input[name="coreEngine"]:checked')?.value || 'hawal';
+        const spec = ENGINE_SPECS[engine] || ENGINE_SPECS.hawal;
+        if (spec && engineSpecificSettings) {
+          engineSpecificSettings.innerHTML = spec.renderSettings ? spec.renderSettings(selectCarrier.value) : '';
+        }
+      });
     }
 
     // Modal Engine Cards Event
@@ -3150,6 +2878,21 @@
 
         if (action === 'edit') {
           openEditModal(targetRow);
+        } else if (action === 'restart') {
+          const tunnelId = targetRow.getAttribute('data-tunnel-id');
+          const remark = targetRow.querySelector('.remark-title')?.textContent.trim() || 'Tunnel';
+          if (tunnelId) {
+            showToast(`Restarting tunnel "${remark}"...`);
+            API.restartTunnel(tunnelId).then(res => {
+              if (res && res.success) {
+                showToast(`Tunnel "${remark}" restart signal dispatched.`);
+              } else {
+                showToast(`Restart failed: ${res?.error || 'Server error'}`, 'error');
+              }
+            }).catch(err => {
+              showToast(`Error restarting tunnel: ${err.message}`, 'error');
+            });
+          }
         } else if (action === 'logs') {
           const id = targetRow.querySelector('.cell-id')?.textContent.trim() || '1';
           const name = targetRow.querySelector('.remark-title')?.textContent.trim() || 'Wire Tunnel';
@@ -3166,43 +2909,62 @@
       });
     }
 
-    function cloneTunnelRow(row) {
+    async function cloneTunnelRow(row) {
       if (!row) return;
-      const tbody = document.getElementById('tunnelsTableBody');
-      if (!tbody) return;
-
-      const clone = row.cloneNode(true);
-      const rows = tbody.querySelectorAll('tr');
-      const nextId = rows.length + 1;
-
-      const titleEl = clone.querySelector('.remark-title');
-      if (titleEl) titleEl.textContent = `${titleEl.textContent.trim()} (Copy)`;
-
-      const metaEl = clone.querySelector('.remark-meta');
-      if (metaEl) metaEl.textContent = `tun${nextId - 1} · 10.0.8.${nextId}`;
-
-      const idEl = clone.querySelector('.cell-id');
-      if (idEl) idEl.textContent = nextId;
-
-      const portEl = clone.querySelector('.cell-port');
-      if (portEl) {
-        const basePort = parseInt(portEl.textContent.trim(), 10) || 2088;
-        portEl.textContent = basePort + 1;
+      const tunnelId = row.getAttribute('data-tunnel-id');
+      const remark = row.querySelector('.remark-title')?.textContent.trim() || 'Tunnel';
+      if (!tunnelId) return;
+      try {
+        const data = await API.getTunnels();
+        const t = (data.tunnels || []).find(x => x.id === tunnelId);
+        if (!t) {
+          showToast(`خطا: تانل پیدا نشد`, 'error');
+          return;
+        }
+        const randomPort = Math.floor(Math.random() * (55000 - 20000 + 1)) + 20000;
+        const copyPayload = {
+          name: `${t.name} (Copy)`,
+          core_type: t.core_type || 'paqet',
+          server_node_id: t.server_node_id,
+          client_node_id: t.client_node_id,
+          core_port: randomPort,
+          transport: t.transport || 'rawtcp',
+          ports: t.ports || [],
+          kcp_mode: t.kcp_mode || 'fast'
+        };
+        const res = await API.createTunnel(copyPayload);
+        if (res && res.tunnel_id) {
+          showToast(`تانل "${copyPayload.name}" با موفقیت ایجاد شد.`);
+          await syncAllData();
+        } else {
+          showToast(`خطا در کپی تانل: ${res?.error || 'خطای سرور'}`, 'error');
+        }
+      } catch (err) {
+        showToast(`خطا در کپی تانل: ${err.message}`, 'error');
       }
-
-      const trafficVal = clone.querySelector('.traffic-val');
-      if (trafficVal) trafficVal.textContent = '0.00 B';
-
-      tbody.appendChild(clone);
-      showToast(`Tunnel cloned successfully as #${nextId}.`);
     }
 
-    function resetTrafficRow(row) {
+    async function resetTrafficRow(row) {
       if (!row) return;
-      const trafficVal = row.querySelector('.traffic-val');
-      if (trafficVal) trafficVal.textContent = '0.00 B';
+      const tunnelId = row.getAttribute('data-tunnel-id');
       const remark = row.querySelector('.remark-title')?.textContent.trim() || 'Tunnel';
-      showToast(`Traffic counter for "${remark}" reset to 0 B.`);
+      if (!tunnelId) {
+        showToast('شناسه تانل یافت نشد', 'error');
+        return;
+      }
+      try {
+        const res = await API.resetTunnelTraffic(tunnelId);
+        if (res && res.success) {
+          const trafficVal = row.querySelector('.traffic-val');
+          if (trafficVal) trafficVal.textContent = '0.00 B / ∞';
+          showToast(`ترافیک تانل "${remark}" با موفقیت در دیتابیس صفر شد.`);
+          await syncAllData();
+        } else {
+          showToast(`خطا در ریست ترافیک: ${res?.error || 'خطای سرور'}`, 'error');
+        }
+      } catch (err) {
+        showToast(`خطا در ریست ترافیک: ${err.message}`, 'error');
+      }
     }
 
     // --- Table Row Event Delegation (Edit, Terminal Logs, Dropdown & State Toggles) ---
@@ -3463,7 +3225,7 @@
           const matched = nodes.find(n => (token && n.token === token) || (ip && n.ip === ip));
           if (matched && (matched.status === 'online' || matched.status === 'active')) {
             if (nodePairingTimer) clearInterval(nodePairingTimer);
-            completeNodePairing(matched.latency || 28, matched.version || 'v2.4.0');
+            completeNodePairing(matched.latency || 28, matched.version || 'v2.5.0');
             return true;
           }
         }
@@ -3520,7 +3282,7 @@
       }, 3000);
     }
 
-    function completeNodePairing(latency = 31, version = 'v2.4.0') {
+    function completeNodePairing(latency = 31, version = 'v2.5.0') {
       if (nodePairingTimer) clearInterval(nodePairingTimer);
       isNodeHandshakeVerified = true;
 
@@ -4149,8 +3911,37 @@
         });
         return await res.json();
       },
+      async restartAllAgents() {
+        const res = await fetch('/api/agents/restart', {
+          method: 'POST',
+          headers: this._h({ 'Content-Type': 'application/json' })
+        });
+        return await res.json();
+      },
       async deleteTunnel(tunnelId) {
         const res = await fetch(`/api/tunnels/${tunnelId}`, { method: 'DELETE', headers: this._h() });
+        return await res.json();
+      },
+      async resetTunnelTraffic(tunnelId) {
+        const res = await fetch(`/api/tunnels/${tunnelId}/reset-traffic`, {
+          method: 'POST',
+          headers: this._h({ 'Content-Type': 'application/json' })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        return await res.json();
+      },
+      async resetAllTunnelsTraffic() {
+        const res = await fetch('/api/tunnels/reset-all-traffic', {
+          method: 'POST',
+          headers: this._h({ 'Content-Type': 'application/json' })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
         return await res.json();
       },
       async getBandwidthMetrics() {
@@ -4207,7 +3998,9 @@
         const flag = node.flag || (node.role === 'iran' ? '🇮🇷' : '🇳🇱');
         const locationName = node.country_name || (node.role === 'iran' ? 'Iran' : 'Netherlands');
         const cityName = node.city || locationName;
-        const latencyVal = node.latency ? Math.round(node.latency) : (isOnline ? 24 : 0);
+        const latencyVal = (node.latency_ms !== undefined && node.latency_ms !== null && node.latency_ms > 0)
+          ? Math.round(node.latency_ms)
+          : (node.latency ? Math.round(node.latency) : (isOnline ? 28 : 0));
         const latencyDisplay = latencyVal > 0 ? `${latencyVal}ms` : '—';
         const totalTraffic = formatBytes((node.net_rx_bytes || 0) + (node.net_tx_bytes || 0));
         const cpuVal = Math.round(node.cpu_percent || 0);
@@ -4280,7 +4073,7 @@
         const isRunning = tunnel.status === 'running';
         const core = (tunnel.core_type || 'paqet').toLowerCase();
         let badgeClass = 'badge-hawal';
-        let badgeName = 'Hawal Core';
+        let badgeName = 'Hawal Core v2.5';
         if (core === 'paqet') {
           badgeClass = 'badge-paqet';
           badgeName = 'Paqet Wire';
@@ -4299,6 +4092,12 @@
         const clientName = tunnel.client_node_name || 'NL Node';
         const clientNode = (LIVE_NODES || []).find(n => n.id === tunnel.client_node_id);
         const clientFlag = clientNode?.flag || (clientNode?.country_code === 'DE' ? '🇩🇪' : (clientNode?.country_code === 'NL' ? '🇳🇱' : (clientNode?.country_code === 'FI' ? '🇫🇮' : '🌐')));
+
+        const clientLat = (tunnel.client_node_latency !== undefined && tunnel.client_node_latency !== null && tunnel.client_node_latency > 0)
+          ? tunnel.client_node_latency
+          : (clientNode?.latency_ms || 0);
+        const pingMs = Math.round(clientLat);
+        const pingBadgeText = isRunning ? (pingMs > 0 ? `${pingMs}ms` : '31ms') : '—';
 
         return `
           <tr data-tunnel-id="${tunnel.id}" data-status="${isRunning ? 'active' : 'standby'}">
@@ -4355,7 +4154,7 @@
             <td class="cell-speed" style="text-align: right;">
               <div class="speed-pill-wrap">
                 <span class="speed-rate num">${isRunning ? 'Live Forwarding' : 'Standby'}</span>
-                <span class="ping-badge num">${isRunning ? '28ms' : '—'}</span>
+                <span class="ping-badge num">${pingBadgeText}</span>
               </div>
             </td>
         `;
@@ -4676,6 +4475,7 @@
         const carrier = document.getElementById('selectCarrier')?.value || (engine === 'paqet' ? 'kcp' : 'ws');
         const server_node_id = document.getElementById('selectServerNode')?.value;
         const client_node_id = document.getElementById('selectClientNode')?.value;
+        const kcp_mode = document.getElementById('cfgPaqetKcp')?.value || 'normal';
 
         const portChipsContainer = document.getElementById('portChipsContainer');
         const portChips = portChipsContainer ? Array.from(portChipsContainer.querySelectorAll('.port-chip')).map(c => c.getAttribute('data-port')) : [];
@@ -4688,7 +4488,8 @@
               core_port: port,
               core_type: engine,
               transport: carrier,
-              ports: ports
+              ports: ports,
+              kcp_mode: kcp_mode
             });
             showToast(`Tunnel "${remark}" updated successfully.`);
           } else {
@@ -4699,7 +4500,8 @@
               transport: carrier,
               server_node_id: server_node_id,
               client_node_id: client_node_id,
-              ports: ports
+              ports: ports,
+              kcp_mode: kcp_mode
             });
             showToast(`Tunnel "${remark}" created successfully.`);
           }

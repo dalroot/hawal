@@ -8,6 +8,7 @@ import secrets
 import time
 import re
 import socket
+import struct
 import subprocess
 import urllib.parse
 from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN
@@ -224,11 +225,6 @@ class HTTPServer:
                                 prev_t["raw_in"] = cur_in
                                 prev_t["raw_out"] = cur_out
                             else:
-                                db_in = tun.get("bytes_in", 0) or 0
-                                db_out = tun.get("bytes_out", 0) or 0
-                                if cur_in > db_in or cur_out > db_out:
-                                    set_tunnel_absolute_traffic(tun_id, max(cur_in, db_in), max(cur_out, db_out))
-                                    tunnel_updated = True
                                 self.tunnel_traffic_tracker[tun_id] = {
                                     "time": now,
                                     "raw_in": cur_in,
@@ -634,8 +630,12 @@ class HTTPServer:
                 self.send_json(writer, {"error": err}, status=400)
                 return
 
-            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', core_type=core_type)
-            self.send_json(writer, {"tunnel_id": tunnel_id, "token": token, "status": "running", "core_type": core_type})
+            token = data.get("token") or secrets.token_hex(8)
+            kcp_mode = str(data.get("kcp_mode", "normal")).strip().lower()
+            if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
+                kcp_mode = "normal"
+            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', core_type=core_type, kcp_mode=kcp_mode)
+            self.send_json(writer, {"tunnel_id": tunnel_id, "token": token, "status": "running", "core_type": core_type, "kcp_mode": kcp_mode})
             await broadcast_ws({"event": "tunnel_updated"})
             return
 
@@ -704,6 +704,11 @@ class HTTPServer:
                 default_transport = "ws"
             transport = data.get("transport", default_transport)
             ports = data.get("ports", [])
+            kcp_mode = data.get("kcp_mode")
+            if kcp_mode is not None:
+                kcp_mode = str(kcp_mode).strip().lower()
+                if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
+                    kcp_mode = "normal"
 
             for p in ports:
                 lp = str(p).split("=")[0].split(":")[0].strip()
@@ -721,7 +726,7 @@ class HTTPServer:
                 self.send_json(writer, {"error": err}, status=400)
                 return
 
-            update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type)
+            update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type, kcp_mode=kcp_mode)
             request_tunnel_restart(tunnel_id)
             self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
             await broadcast_ws({"event": "tunnel_updated"})
@@ -785,6 +790,60 @@ class HTTPServer:
             count = request_all_agents_restart()
             self.send_json(writer, {"success": True, "nodes": count})
             await broadcast_ws({"event": "node_updated"})
+            return
+
+        if method == "POST" and "/api/tunnels/" in path and path.endswith("/reset-traffic"):
+            tunnel_id = path.split("/")[3]
+            t = get_tunnel(tunnel_id)
+            if not t:
+                self.send_json(writer, {"error": "Tunnel not found"}, status=404)
+                return
+            set_tunnel_absolute_traffic(tunnel_id, 0, 0)
+            
+            fwd_ports = []
+            for rule in t.get("ports", []):
+                try:
+                    p_str = str(rule).split("=")[0].split(":")[-1].strip()
+                    fwd_ports.append(int(p_str))
+                except Exception:
+                    pass
+            target_ports = fwd_ports if fwd_ports else [t.get("core_port")]
+            
+            # Reset iptables rule counters by delete & re-add
+            for p in target_ports:
+                for proto in ("tcp", "udp"):
+                    try:
+                        p_str = str(p)
+                        while subprocess.run(["iptables", "-D", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                            pass
+                        subprocess.run(["iptables", "-A", "HAWAL_ACCT_IN", "-p", proto, "--dport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        while subprocess.run(["iptables", "-D", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                            pass
+                        subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception:
+                        pass
+            
+            self.tunnel_traffic_tracker[tunnel_id] = {
+                "time": time.time(),
+                "raw_in": 0,
+                "raw_out": 0
+            }
+            self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
+            await broadcast_ws({"event": "tunnel_updated"})
+            return
+
+        if method == "POST" and path == "/api/tunnels/reset-all-traffic":
+            tunnels = list_tunnels()
+            for t in tunnels:
+                set_tunnel_absolute_traffic(t["id"], 0, 0)
+            self.tunnel_traffic_tracker.clear()
+            try:
+                subprocess.run(["iptables", "-Z", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["iptables", "-Z", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            self.send_json(writer, {"success": True})
+            await broadcast_ws({"event": "tunnel_updated"})
             return
 
         if method == "POST" and "/api/tunnels/" in path and path.endswith("/test"):
@@ -963,6 +1022,25 @@ class HTTPServer:
                         "last_sample_time": now, "accum_rx": 0, "accum_tx": 0
                     }
 
+            latency_val = data.get("latency_ms") or data.get("ping_ms")
+            if latency_val is not None:
+                try:
+                    latency_val = float(latency_val)
+                except:
+                    latency_val = None
+
+            if latency_val is None:
+                try:
+                    sock = writer.get_extra_info('socket')
+                    if sock and hasattr(socket, 'TCP_INFO'):
+                        raw = sock.getsockopt(socket.SOL_TCP, socket.TCP_INFO, 104)
+                        if len(raw) >= 72:
+                            rtt_us = struct.unpack_from('I', raw, 68)[0]
+                            if rtt_us > 0:
+                                latency_val = round(rtt_us / 1000.0, 1)
+                except Exception:
+                    pass
+
             update_node_heartbeat(
                 node["id"], client_ip,
                 data.get("cpu_percent", 0),
@@ -972,7 +1050,8 @@ class HTTPServer:
                 net_rx_bytes=net_rx,
                 net_tx_bytes=net_tx,
                 rate_in_mbps=r_in,
-                rate_out_mbps=r_out
+                rate_out_mbps=r_out,
+                latency_ms=latency_val
             )
 
             # Return all active tunnel configs for this node
@@ -1261,6 +1340,9 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         resp = (
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/html; charset=utf-8\r\n"
+            "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+            "Pragma: no-cache\r\n"
+            "Expires: 0\r\n"
             f"Content-Length: {len(content.encode('utf-8'))}\r\n"
             "Connection: close\r\n\r\n" + content
         )

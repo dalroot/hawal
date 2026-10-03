@@ -26,6 +26,8 @@ type Config struct {
 	NoDelay     bool         `json:"nodelay"`
 	InsecureTLS bool         `json:"insecure_tls"`
 	ServerName  string       `json:"server_name"`
+	InterfaceName string     `json:"interface"`
+	RouterMAC     string     `json:"router_mac"`
 }
 
 type Engine struct {
@@ -76,7 +78,14 @@ func NewEngine(cfg Config) (*Engine, error) {
 	}
 
 	if err := reg.Register(carrier.KindRawPaq, func() (carrier.Carrier, error) {
-		return rawpaqcarrier.New(rawpaqcarrier.DefaultConfig(), rawpaqcarrier.UDPBackend{}, nil)
+		rawCfg := rawpaqcarrier.DefaultConfig()
+		if cfg.InterfaceName != "" {
+			rawCfg.InterfaceName = cfg.InterfaceName
+		}
+		if cfg.RouterMAC != "" {
+			rawCfg.RouterMAC = cfg.RouterMAC
+		}
+		return rawpaqcarrier.New(rawCfg, rawpaqcarrier.DefaultBackend(), nil)
 	}); err != nil {
 		return nil, err
 	}

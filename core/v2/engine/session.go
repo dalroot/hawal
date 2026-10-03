@@ -37,6 +37,8 @@ type Session struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	lastInboundActivity int64
 }
 
 func NewSession(link carrier.Link, codec *record.Codec, isServer bool) (*Session, error) {
@@ -65,10 +67,11 @@ func NewSession(link carrier.Link, codec *record.Codec, isServer bool) (*Session
 		isServer:     isServer,
 		streams:      make(map[uint64]*Stream),
 		nextStreamID: initStreamID,
-		incoming:     make(chan *Stream, 128),
-		closed:       make(chan struct{}),
-		ctx:          ctx,
-		cancel:       cancel,
+		incoming:            make(chan *Stream, 128),
+		closed:              make(chan struct{}),
+		ctx:                 ctx,
+		cancel:              cancel,
+		lastInboundActivity: time.Now().UnixNano(),
 	}
 
 	go s.outboundPump()
@@ -229,6 +232,7 @@ func (s *Session) outboundPump() {
 			Payload:  payload,
 		}
 
+		_ = s.link.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		if err := s.codec.Write(s.link, rec); err != nil {
 			_ = s.CloseWithError(fmt.Errorf("engine: write record: %w", err))
 			return
@@ -243,6 +247,8 @@ func (s *Session) inboundPump() {
 			_ = s.CloseWithError(fmt.Errorf("engine: read record: %w", err))
 			return
 		}
+
+		atomic.StoreInt64(&s.lastInboundActivity, time.Now().UnixNano())
 
 		switch rec.Type {
 		case record.TypeOpen:
@@ -288,13 +294,22 @@ func (s *Session) inboundPump() {
 			}
 
 		case record.TypePing:
-			// Ping received; connection is live
+			// Peer is probing liveness; respond immediately with Pong
+			pongPayload := []byte{byte(record.TypePong)}
+			_ = s.enqueueControl(mux.Frame{
+				StreamID: 0,
+				Class:    mux.ClassControl,
+				Payload:  pongPayload,
+			})
+
+		case record.TypePong:
+			// Pong received; peer confirmed liveness (lastInboundActivity was updated)
 		}
 	}
 }
 
 func (s *Session) pingLoop() {
-	ticker := time.NewTicker(25 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -302,12 +317,23 @@ func (s *Session) pingLoop() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
+			// 1. Send Ping
 			payload := []byte{byte(record.TypePing)}
-			_ = s.enqueueControl(mux.Frame{
+			if err := s.enqueueControl(mux.Frame{
 				StreamID: 0,
 				Class:    mux.ClassControl,
 				Payload:  payload,
-			})
+			}); err != nil {
+				_ = s.CloseWithError(fmt.Errorf("engine: ping enqueue failed: %w", err))
+				return
+			}
+
+			// 2. Dead-link autodetection: if no response/activity for > 45s, tear down session
+			last := time.Unix(0, atomic.LoadInt64(&s.lastInboundActivity))
+			if time.Since(last) > 45*time.Second {
+				_ = s.CloseWithError(fmt.Errorf("engine: dead link detected (no activity for %v)", time.Since(last).Round(time.Second)))
+				return
+			}
 		}
 	}
 }

@@ -202,7 +202,7 @@ class HawalAgent:
         if os.path.exists(HAWAL_CORE_BIN) and os.path.isfile(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
             try:
                 out = subprocess.check_output([HAWAL_CORE_BIN, "-version"], text=True, timeout=2)
-                if "v2.0" in out:
+                if "v2." in out or "Hawal Stealth Core" in out:
                     is_v2 = True
             except Exception:
                 is_v2 = False
@@ -217,16 +217,20 @@ class HawalAgent:
         try:
             local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
             if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
-                shutil.copy(local_static_bin, HAWAL_CORE_BIN)
-                os.chmod(HAWAL_CORE_BIN, 0o755)
+                temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
+                shutil.copy(local_static_bin, temp_bin)
+                os.chmod(temp_bin, 0o755)
+                os.replace(temp_bin, HAWAL_CORE_BIN)
                 print("[Agent] ✅ Hawal Core v2 binary installed from local panel.")
                 return True
 
             url = f"{self.panel_url}/static/bin/hawal-core"
             req = urllib.request.Request(url, headers={"Authorization": f"Bearer {self.token}"})
-            with urllib.request.urlopen(req, timeout=15) as resp, open(HAWAL_CORE_BIN, "wb") as out:
+            temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
+            with urllib.request.urlopen(req, timeout=15) as resp, open(temp_bin, "wb") as out:
                 shutil.copyfileobj(resp, out)
-            os.chmod(HAWAL_CORE_BIN, 0o755)
+            os.chmod(temp_bin, 0o755)
+            os.replace(temp_bin, HAWAL_CORE_BIN)
             print("[Agent] ✅ Hawal Core v2 binary downloaded and installed.")
             return True
         except Exception as e:
@@ -383,11 +387,13 @@ class HawalAgent:
                 ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
             ]
         else:
-            # Paqet's client uses a normal local TCP listener for forwarded ports.
-            # The upstream firewall bypass rules are required only on the raw-packet
-            # server port; applying NOTRACK to a forwarded port (such as 80/443)
-            # can break conntrack for real client traffic.
-            rules = []
+            # On the client, raw TCP traffic to the server's core_port must not be RST'd by the kernel,
+            # and conntrack should not track raw packets to/from the core_port.
+            rules = [
+                ("raw", "PREROUTING", ["-p", "tcp", "--sport", str(core_port), "-j", "NOTRACK"]),
+                ("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"]),
+                ("mangle", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
+            ]
         try:
             for table, chain, rule in rules:
                 if not self._iptables_rule("-C", table, chain, rule):
@@ -407,7 +413,11 @@ class HawalAgent:
                 ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
             ]
         else:
-            rules = []
+            rules = [
+                ("raw", "PREROUTING", ["-p", "tcp", "--sport", str(core_port), "-j", "NOTRACK"]),
+                ("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"]),
+                ("mangle", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
+            ]
         try:
             for table, chain, rule in rules:
                 while self._iptables_rule("-D", table, chain, rule):
@@ -417,6 +427,9 @@ class HawalAgent:
 
     def send_heartbeat(self):
         metrics = self.get_system_metrics()
+        if hasattr(self, 'last_rtt_ms') and self.last_rtt_ms is not None:
+            metrics["latency_ms"] = self.last_rtt_ms
+
         url = f"{self.panel_url}/api/agent/heartbeat"
         req = urllib.request.Request(
             url,
@@ -427,8 +440,11 @@ class HawalAgent:
             },
             method="POST"
         )
+        t0 = time.perf_counter()
         try:
             with urllib.request.urlopen(req, timeout=5) as response:
+                rtt = (time.perf_counter() - t0) * 1000.0
+                self.last_rtt_ms = round(rtt, 1)
                 return response.status == 200
         except Exception as e:
             return False
@@ -495,7 +511,22 @@ class HawalAgent:
                     continue
 
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
-                cfg_content = json.dumps(item["config"], indent=2)
+                raw_cfg = dict(item["config"])
+                role = item.get("role", "server")
+                core_port = item.get("core_port")
+                ports = item.get("ports", [])
+                carrier = str(raw_cfg.get("carrier", "tls")).lower()
+
+                if carrier == "rawpaq":
+                    iface, local_ip, gw_mac = self.get_network_info()
+                    if iface and not raw_cfg.get("interface"):
+                        raw_cfg["interface"] = iface
+                    if gw_mac and not raw_cfg.get("router_mac"):
+                        raw_cfg["router_mac"] = gw_mac
+                    if not self.configure_paqet_iptables(role, core_port, ports):
+                        continue
+
+                cfg_content = json.dumps(raw_cfg, indent=2)
                 
                 marker = cfg_content + restart_marker
                 if not is_running or self.running_configs.get(tun_id) != marker:
@@ -503,7 +534,7 @@ class HawalAgent:
                         f.write(cfg_content)
                     self.restart_tunnel_process(
                         tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], marker,
-                        {"core_type": "hawal", "role": item.get("role", "server"), "core_port": item.get("core_port"), "ports": item.get("ports", [])}
+                        {"core_type": "hawal", "carrier": carrier, "role": role, "core_port": core_port, "ports": ports}
                     )
 
             elif core_type == "backhaul":
@@ -671,7 +702,7 @@ class HawalAgent:
         ports = self._extract_ports(metadata)
         self._free_ports(ports)
 
-        if metadata.get("core_type") == "paqet":
+        if metadata.get("core_type") == "paqet" or (metadata.get("core_type") == "hawal" and metadata.get("carrier") == "rawpaq"):
             self.cleanup_paqet_iptables(metadata.get("role"), metadata.get("core_port"), metadata.get("ports"))
         self.running_metadata.pop(tun_id, None)
 

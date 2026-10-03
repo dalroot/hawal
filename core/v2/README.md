@@ -1,54 +1,46 @@
-# Hawal Core v2 (experimental)
+# Hawal Core v2.5.1 (Production-Ready Stealth Engine)
 
-This directory contains the side-by-side implementation of Hawal Core v2.
-It is intentionally not wired into the agent, installer, or web panel yet.
+This directory contains the core implementation of **Hawal Core v2.5.1**, a high-performance, censorship-resistant multi-carrier stealth tunneling engine written in Go.
 
-Implemented foundation:
+## Architectural Foundation & Core Features
 
-- transport-independent carrier contracts and a concurrency-safe registry;
-- a baseline TCP carrier and loopback integration test;
-- encrypted version/capability negotiation data structures;
-- a secure-handshake boundary that accepts only vetted implementations;
-- a bounded authenticated record codec with encrypted metadata, length buckets,
-  direction-separated nonces, transcript AAD, and a per-key record limit;
-- a weighted, bounded mux scheduler and byte-credit flow-control window;
-- an explicit session lifecycle and idempotent multi-path promotion;
-- path selection with dwell time, hysteresis, and stale-sample rejection;
-- a shaping plugin boundary with enforced overhead and delay budgets;
-- a bounded, structured event recorder that does not accept arbitrary log text;
-- conservative failure classification (a failed connection is never treated as
-  proof of DPI interference); and
-- central operational limits plus stable typed failure categories.
+- **Multi-Carrier Architecture:**
+  - `tcp`: Baseline streaming carrier with bidirectional multiplexing.
+  - `tls-http`: TLS 1.3 masquerade with customizable SNI and HTTP-like handshakes.
+  - `rawpaq`: Native Linux Raw-TCP carrier with socket-level kernel cBPF/eBPF packet filtering and custom SYN/ACK packet generation, bypassing stateful middlebox tracking.
+- **Cryptographic Security & Privacy:**
+  - Ephemeral X25519 Diffie-Hellman key exchange providing **Perfect Forward Secrecy (PFS)**.
+  - **ChaCha20-Poly1305 AEAD** frame encryption with encrypted record lengths, headers, and sequence counters.
+  - Variable pseudo-random length masking on handshake flights to foil ML packet-length classifiers.
+  - **Zero User Logging:** Hawal Core logs only structured system and lifecycle events; user connection IPs are never recorded.
+- **Anti-Freeze & Resilient Transport (v2.5.1):**
+  - **Bidirectional Heartbeats:** Periodic `TypePing` and `TypePong` (Record Type 9) exchange for true wire reachability verification.
+  - **Dead-Link Auto-Detection:** Automatically detects silent packet absorption / ISP route dropping (>45s without inbound traffic) and cleanly triggers client-side reconnection.
+  - **Socket Write Deadlines:** 10s deadlines on carrier writes and mux pumps to eliminate permanent KCP/socket send-window blocking.
+- **High-Throughput Multiplexing:**
+  - Weighted fair scheduling with strict byte-credit flow control windows.
+  - Bounded ring buffers and non-blocking IO.
 
-Package direction:
+## Package Structure
 
 ```text
-application adapters
-        |
-       mux  <---- policy / shaping
-        |
-      record
-        |
- secure session ---- protocol negotiation
-        |
-     carrier ---- observe / controller
+application ingress (SOCKS / TCP Forward)
+        │
+       mux  ◄──── policy / shaping
+        │
+      record (ChaCha20-Poly1305 + Length Masking)
+        │
+  secure session ──── Noise Handshake (PFS: X25519)
+        │
+      carrier (Rawpaq / TLS / TCP) ──── observe / controller
 ```
 
-Hard invariants:
+## Building & Testing
 
-1. Carriers never receive tokens, databases, or port mappings.
-2. Negotiation occurs after authentication and is not a cleartext magic prefix.
-3. Record allocation, queues, windows, paths, and key lifetime are bounded.
-4. Attaching a path never closes the current primary path.
-5. Logs have stable structured fields and no arbitrary payload text.
-6. Adaptive decisions require fresh measurements, dwell time, and hysteresis.
+```bash
+# Run all unit, integration, and fuzz tests
+go test -v -race ./v2/...
 
-Not implemented yet:
-
-- a concrete TLS 1.3 or audited Noise handshaker;
-- key update execution and replay cache for resumptions;
-- the complete stream state machine and record pump;
-- TLS/HTTP, QUIC, and owned raw-packet carriers;
-- agent/panel configuration and production rollout.
-
-The v1 wire format and running production tunnels remain unchanged.
+# Build standalone binary
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.Version=2.5.1" -o ../bin/hawal-core ./v2/cmd/hawal-core
+```

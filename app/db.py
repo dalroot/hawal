@@ -100,6 +100,10 @@ def init_db():
         except:
             pass
         try:
+            cursor.execute("ALTER TABLE tunnels ADD COLUMN kcp_mode TEXT DEFAULT 'normal'")
+        except:
+            pass
+        try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN agent_restart_nonce INTEGER NOT NULL DEFAULT 0")
         except:
             pass
@@ -126,13 +130,17 @@ def init_db():
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_traffic_target_ts ON traffic_samples(target_type, target_id, timestamp)")
 
-        try:
-            cursor.execute("ALTER TABLE nodes ADD COLUMN net_rx_bytes INTEGER DEFAULT 0")
-            cursor.execute("ALTER TABLE nodes ADD COLUMN net_tx_bytes INTEGER DEFAULT 0")
-            cursor.execute("ALTER TABLE nodes ADD COLUMN rate_in_mbps REAL DEFAULT 0")
-            cursor.execute("ALTER TABLE nodes ADD COLUMN rate_out_mbps REAL DEFAULT 0")
-        except:
-            pass
+        for col, col_type in [
+            ("net_rx_bytes", "INTEGER DEFAULT 0"),
+            ("net_tx_bytes", "INTEGER DEFAULT 0"),
+            ("rate_in_mbps", "REAL DEFAULT 0"),
+            ("rate_out_mbps", "REAL DEFAULT 0"),
+            ("latency_ms", "REAL DEFAULT 0"),
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE nodes ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass
         
         conn.commit()
 
@@ -180,7 +188,7 @@ def save_node(node_id, name, ip, role, token, country_code="GLOBAL", country_nam
         """, (node_id, name, ip, role, country_code, country_name, flag, city, token, now))
         conn.commit()
 
-def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country_code=None, country_name=None, flag=None, city=None, net_rx_bytes=None, net_tx_bytes=None, rate_in_mbps=None, rate_out_mbps=None):
+def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country_code=None, country_name=None, flag=None, city=None, net_rx_bytes=None, net_tx_bytes=None, rate_in_mbps=None, rate_out_mbps=None, latency_ms=None):
     now = time.time()
     with get_db() as conn:
         updates = [
@@ -207,6 +215,8 @@ def update_node_heartbeat(node_id, ip, cpu, ram_used, ram_total, uptime, country
             updates.append(("rate_in_mbps", round(float(rate_in_mbps), 2)))
         if rate_out_mbps is not None:
             updates.append(("rate_out_mbps", round(float(rate_out_mbps), 2)))
+        if latency_ms is not None:
+            updates.append(("latency_ms", round(float(latency_ms), 1)))
 
         set_clause = ", ".join([f"{col} = ?" for col, _ in updates])
         params = [val for _, val in updates]
@@ -224,8 +234,8 @@ def list_tunnels():
     with get_db() as conn:
         rows = conn.execute("""
         SELECT t.*, 
-               sn.name as server_node_name, sn.ip as server_node_ip, sn.role as server_node_role,
-               cn.name as client_node_name, cn.ip as client_node_ip, cn.role as client_node_role
+               sn.name as server_node_name, sn.ip as server_node_ip, sn.role as server_node_role, sn.latency_ms as server_node_latency,
+               cn.name as client_node_name, cn.ip as client_node_ip, cn.role as client_node_role, cn.latency_ms as client_node_latency
         FROM tunnels t
         LEFT JOIN nodes sn ON t.server_node_id = sn.id
         LEFT JOIN nodes cn ON t.client_node_id = cn.id
@@ -253,13 +263,13 @@ def get_tunnel(tunnel_id):
             d["ports"] = []
         return d
 
-def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', nodelay=1, snappy=1, mux_con=8, keepalive=75, channel_size=2048, core_type='hawal'):
+def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', nodelay=1, snappy=1, mux_con=8, keepalive=75, channel_size=2048, core_type='hawal', kcp_mode='normal'):
     now = time.time()
     ports_json = json.dumps(ports)
     with get_db() as conn:
         conn.execute("""
-        INSERT INTO tunnels (id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tunnels (id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, kcp_mode, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name=excluded.name,
             core_type=excluded.core_type,
@@ -274,22 +284,35 @@ def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, tran
             snappy=excluded.snappy,
             mux_con=excluded.mux_con,
             keepalive=excluded.keepalive,
-            channel_size=excluded.channel_size
-        """, (tunnel_id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, now))
+            channel_size=excluded.channel_size,
+            kcp_mode=excluded.kcp_mode
+        """, (tunnel_id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, kcp_mode, now))
         conn.commit()
 
-def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal'):
+def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal', kcp_mode=None):
     ports_json = json.dumps(ports)
     with get_db() as conn:
-        conn.execute("""
-        UPDATE tunnels SET
-            name = ?,
-            core_port = ?,
-            transport = ?,
-            ports_json = ?,
-            core_type = ?
-        WHERE id = ?
-        """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
+        if kcp_mode:
+            conn.execute("""
+            UPDATE tunnels SET
+                name = ?,
+                core_port = ?,
+                transport = ?,
+                ports_json = ?,
+                core_type = ?,
+                kcp_mode = ?
+            WHERE id = ?
+            """, (name, int(core_port), transport, ports_json, core_type, kcp_mode, tunnel_id))
+        else:
+            conn.execute("""
+            UPDATE tunnels SET
+                name = ?,
+                core_port = ?,
+                transport = ?,
+                ports_json = ?,
+                core_type = ?
+            WHERE id = ?
+            """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
         conn.commit()
 
 def request_tunnel_restart(tunnel_id):
