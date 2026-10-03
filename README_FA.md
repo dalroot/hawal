@@ -74,45 +74,38 @@
 در معماری هوال، جریان مدیریت (Control Plane) به‌طور کامل از جریان انتقال ترافیک کاربران (Data Plane) مجزا است:
 
 ```mermaid
-graph TD
-    subgraph ManagementPlane["🖥️ لایه مدیریت و کنترل (Control Plane)"]
-        Admin["👤 مدیر شبکه / ادمین"]
-        Panel["⚡ پنل وب مستر هه‌واڵ<br/><b>FastAPI + SQLite + Web UI</b><br/><i>پورت پیش‌فرض :9090 یا :443 ریورس پروکسی</i>"]
-        Admin -->|مرورگر وب با HTTPS| Panel
+flowchart TD
+    subgraph ManagementPlane ["🖥️ لایه مدیریت و کنترل (Control Plane)"]
+        Admin["👤 مدیر شبکه (Admin)"]
+        Panel["⚡ پنل وب مستر هه‌واڵ (FastAPI + SQLite)"]
+        Admin --> Panel
     end
 
-    subgraph IranEdge["🇮🇷 نود لبه ایران (سمت کلاینت / Dialer)"]
-        AgentIran["🤖 ایجنت هه‌واڵ<br/><i>/opt/hawal/agent.py</i>"]
-        IngressPort["🚪 پورت ورودی کلاینت<br/><i>مانند :443 یا :8443 (TCP/UDP)</i>"]
-        HawalDialer["⚡ موتور هوال کور (v2.5.1)<br/><i>Raw-TCP (cBPF) / TLS 1.3 / TCP Mux</i>"]
-        ClientUser["👥 کاربران و کلاینت‌ها<br/><i>(Xray / V2Ray / Sing-box)</i>"]
-        
-        ClientUser -->|ترافیک ورودی| IngressPort
-        IngressPort -->|هدایت به هسته| HawalDialer
+    subgraph IranEdge ["🇮🇷 نود لبه ایران (Client / Dialer)"]
+        AgentIran["🤖 ایجنت هه‌واڵ (/opt/hawal/agent.py)"]
+        IngressPort["🚪 پورت ورودی کلاینت (:443, :8443)"]
+        HawalDialer["⚡ موتور هوال کور (Raw-TCP + فیلتر cBPF)"]
+        ClientUser["👥 کاربران و کلاینت‌ها (Xray / Sing-box)"]
+
+        ClientUser --> IngressPort
+        IngressPort --> HawalDialer
     end
 
-    subgraph ForeignEdge["🌍 نود خروجی خارج (سمت سرور / Acceptor)"]
-        AgentForeign["🤖 ایجنت هه‌واڵ<br/><i>/opt/hawal/agent.py</i>"]
-        HawalAcceptor["⚡ سرور هوال کور (v2.5.1)<br/><i>شنود مستقیم سوکت خام و BPF</i>"]
-        CorePort["🔒 پورت اختصاصی هسته<br/><i>مانند :3107 یا :9999</i>"]
-        TargetApp["🎯 سرویس مقصد<br/><i>Xray / 3X-UI / GOST (127.0.0.1:443)</i>"]
+    subgraph ForeignEdge ["🌍 نود خروجی خارج (Server / Acceptor)"]
+        AgentForeign["🤖 ایجنت هه‌واڵ (/opt/hawal/agent.py)"]
+        CorePort["🔒 پورت اختصاصی هسته (:3107)"]
+        HawalAcceptor["⚡ شنود سوکت خام و فیلتر کرنل BPF"]
+        TargetApp["🎯 سرویس مقصد (Xray / 3X-UI / GOST)"]
 
-        CorePort -->|دی‌مالتی‌پلکس داده| HawalAcceptor
-        HawalAcceptor -->|لوپ‌بک محلی| TargetApp
+        CorePort --> HawalAcceptor
+        HawalAcceptor --> TargetApp
     end
 
-    Panel <-.->|همگام‌سازی تنظیمات و تله‌متری (هر ۳ ثانیه)<br/>ارتباط امن با توکن موقت| AgentIran
-    Panel <-.->|همگام‌سازی تنظیمات و تله‌متری (هر ۳ ثانیه)<br/>ارتباط امن با توکن موقت| AgentForeign
-    HawalDialer ==>|تانل معکوس خروجی (Outbound Reverse Tunnel)<br/>رمزنگاری Noise X25519 (PFS) + ChaCha20-Poly1305<br/>هارت‌بیت ضد فریز و عدم ثبت آی‌پی کاربر| CorePort
-
-    classDef panelStyle fill:#0f172a,stroke:#0284c7,stroke-width:2px,color:#f8fafc;
-    classDef iranStyle fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef foreignStyle fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
-    
-    class Panel panelStyle;
-    class HawalDialer,IngressPort,AgentIran,ClientUser iranStyle;
-    class HawalAcceptor,CorePort,AgentForeign,TargetApp foreignStyle;
+    Panel -. "همگام‌سازی تنظیمات و تله‌متری (هر ۳ ثانیه)" .-> AgentIran
+    Panel -. "همگام‌سازی تنظیمات و تله‌متری (هر ۳ ثانیه)" .-> AgentForeign
+    HawalDialer == "تانل معکوس رمزشده (Noise PFS + ضد فریز)" ==> CorePort
 ```
+
 
 ```text
 ╭────────────────────────────────────────────────────────────────────────────────────────╮

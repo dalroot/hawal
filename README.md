@@ -75,45 +75,38 @@
 In Hawal's architecture, the management control plane is completely separated from the high-throughput encrypted data plane:
 
 ```mermaid
-graph TD
-    subgraph ManagementPlane["🖥️ Control Plane (Web Dashboard & State Orchestration)"]
+flowchart TD
+    subgraph ManagementPlane ["🖥️ Control Plane (Web Dashboard & Management)"]
         Admin["👤 Admin / Network Operator"]
-        Panel["⚡ Hawal Master Panel<br/><b>FastAPI + SQLite + Web UI</b><br/><i>Default Port :9090 or :443 HTTPS</i>"]
-        Admin -->|Browser HTTPS| Panel
+        Panel["⚡ Hawal Master Panel (FastAPI + SQLite)"]
+        Admin --> Panel
     end
 
-    subgraph IranEdge["🇮🇷 Iran Edge Node (Client / Dialer)"]
-        AgentIran["🤖 Hawal Node Agent<br/><i>/opt/hawal/agent.py</i>"]
-        IngressPort["🚪 Client Ingress Port<br/><i>e.g. :443, :8443 (TCP/UDP)</i>"]
-        HawalDialer["⚡ Hawal Core Engine (v2.5.1)<br/><i>Raw-TCP (cBPF) / TLS 1.3 / TCP Mux</i>"]
-        ClientUser["👥 End-Users & VPN Clients<br/><i>(Xray / V2Ray / Sing-box)</i>"]
-        
-        ClientUser -->|User Traffic| IngressPort
-        IngressPort -->|Forward Stream| HawalDialer
+    subgraph IranEdge ["🇮🇷 Iran Edge Node (Client / Dialer)"]
+        AgentIran["🤖 Hawal Node Agent (/opt/hawal/agent.py)"]
+        IngressPort["🚪 Client Ingress Port (:443, :8443)"]
+        HawalDialer["⚡ Hawal Core Engine (Raw-TCP cBPF + Noise PFS)"]
+        ClientUser["👥 End-Users & VPN Clients (Xray / Sing-box)"]
+
+        ClientUser --> IngressPort
+        IngressPort --> HawalDialer
     end
 
-    subgraph ForeignEdge["🌍 Foreign Exit Node (Server / Acceptor)"]
-        AgentForeign["🤖 Hawal Node Agent<br/><i>/opt/hawal/agent.py</i>"]
-        HawalAcceptor["⚡ Hawal Core Server (v2.5.1)<br/><i>Kernel BPF / Raw Socket Listener</i>"]
-        CorePort["🔒 Stealth Core Port<br/><i>e.g. :3107 / :9999</i>"]
-        TargetApp["🎯 Target Service<br/><i>Xray / 3X-UI / GOST (127.0.0.1:443)</i>"]
+    subgraph ForeignEdge ["🌍 Foreign Exit Node (Server / Acceptor)"]
+        AgentForeign["🤖 Hawal Node Agent (/opt/hawal/agent.py)"]
+        CorePort["🔒 Stealth Core Port (:3107)"]
+        HawalAcceptor["⚡ Hawal Core Server (Kernel BPF Listener)"]
+        TargetApp["🎯 Target Service (Xray / 3X-UI / GOST)"]
 
-        CorePort -->|Demux Payloads| HawalAcceptor
-        HawalAcceptor -->|Local Loopback| TargetApp
+        CorePort --> HawalAcceptor
+        HawalAcceptor --> TargetApp
     end
 
-    Panel <-.->|Sync Config & Telemetry (3s)<br/>TLS / Ephemeral Bearer Token| AgentIran
-    Panel <-.->|Sync Config & Telemetry (3s)<br/>TLS / Ephemeral Bearer Token| AgentForeign
-    HawalDialer ==>|Reverse Outbound Stealth Transport<br/>PFS: Noise X25519 + ChaCha20-Poly1305<br/>Anti-Freeze Heartbeat & Zero-User Logging| CorePort
-
-    classDef panelStyle fill:#0f172a,stroke:#0284c7,stroke-width:2px,color:#f8fafc;
-    classDef iranStyle fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef foreignStyle fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
-    
-    class Panel panelStyle;
-    class HawalDialer,IngressPort,AgentIran,ClientUser iranStyle;
-    class HawalAcceptor,CorePort,AgentForeign,TargetApp foreignStyle;
+    Panel -. "Sync Config & Telemetry (every 3s)" .-> AgentIran
+    Panel -. "Sync Config & Telemetry (every 3s)" .-> AgentForeign
+    HawalDialer == "Reverse Outbound Stealth Tunnel (PFS: Noise X25519)" ==> CorePort
 ```
+
 
 ```text
 ╭────────────────────────────────────────────────────────────────────────────────────────╮
