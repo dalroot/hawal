@@ -1,0 +1,10 @@
+# GitHub Linguist Language Override
+# Treat UI templates and static frontend assets as vendored
+# so that the repository language stats reflect the actual engineering core: Go & Python.
+
+ui-v2/** linguist-vendored
+app/templates/** linguist-vendored
+app/static/css/** linguist-vendored
+app/static/js/** linguist-vendored
+app/static/bin/** linguist-vendored
+docs/** linguist-documentation
