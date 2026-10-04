@@ -5194,15 +5194,8 @@
       });
     }
 
-    const topbarNewTunnelBtn = document.getElementById('topbarNewTunnelBtn');
-    if (topbarNewTunnelBtn) {
-      topbarNewTunnelBtn.addEventListener('click', () => {
-        const addTunnelModal = document.getElementById('addTunnelModal');
-        if (addTunnelModal) addTunnelModal.style.display = 'flex';
-      });
-    }
-
     async function checkPanelVersion(force = false, dev = false) {
+
       if (updateModalLatestVersion) {
         updateModalLatestVersion.textContent = 'Checking...';
       }
