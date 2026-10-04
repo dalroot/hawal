@@ -15,6 +15,7 @@
 - [`source-catalog.md`](source-catalog.md): فهرست کتاب‌شناختی منابع اولیه و وضعیت دسترسی.
 - [`hawal-v2-requirements.md`](hawal-v2-requirements.md): الزامات ماژولار و تصمیم‌های معماری Hawal Core v2.
 - [`raw-tcp-and-paqet-mechanisms.md`](raw-tcp-and-paqet-mechanisms.md): مبانی نظری دور زدن DPI بر پایه مقالات Black Hat/USENIX، کالبدشکافی Paqet و ریشه‌یابی باگ‌های فریز.
+- [`morning-freeze-and-conntrack-flushing.md`](morning-freeze-and-conntrack-flushing.md): کالبدشکافی فنی فریز صبحگاهی، روترهای BNG/DPI (هواوی ME60/NE40E، سیسکو، زد‌تی‌ای)، فلاش جداول TCAM و راهکارهای معماری.
 - [`owned-lab-test-matrix.md`](owned-lab-test-matrix.md): برنامهٔ اندازه‌گیری میان سرورهای تحت کنترل، بدون تغییر سرویس اصلی.
 
 ## قواعد استفاده در پروژه

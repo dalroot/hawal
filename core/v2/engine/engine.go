@@ -26,8 +26,9 @@ type Config struct {
 	NoDelay     bool         `json:"nodelay"`
 	InsecureTLS bool         `json:"insecure_tls"`
 	ServerName  string       `json:"server_name"`
-	InterfaceName string     `json:"interface"`
-	RouterMAC     string     `json:"router_mac"`
+	InterfaceName string         `json:"interface"`
+	RouterMAC     string         `json:"router_mac"`
+	SessionOpts   SessionOptions `json:"-"`
 }
 
 type Engine struct {
@@ -45,6 +46,10 @@ type Engine struct {
 }
 
 func NewEngine(cfg Config) (*Engine, error) {
+	return NewEngineWithRegistry(cfg, nil)
+}
+
+func NewEngineWithRegistry(cfg Config, reg *carrier.Registry) (*Engine, error) {
 	if cfg.Token == "" {
 		return nil, errors.New("engine: token is required")
 	}
@@ -61,33 +66,35 @@ func NewEngine(cfg Config) (*Engine, error) {
 		}
 	}
 
-	reg := carrier.NewRegistry()
-	if err := reg.Register(carrier.KindTCP, func() (carrier.Carrier, error) {
-		return tcpcarrier.Carrier{}, nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := reg.Register(carrier.KindTLSHTTP, func() (carrier.Carrier, error) {
-		return tlscarrier.New(tlscarrier.Config{
-			Insecure:   cfg.InsecureTLS,
-			ServerName: cfg.ServerName,
-		}), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := reg.Register(carrier.KindRawPaq, func() (carrier.Carrier, error) {
-		rawCfg := rawpaqcarrier.DefaultConfig()
-		if cfg.InterfaceName != "" {
-			rawCfg.InterfaceName = cfg.InterfaceName
+	if reg == nil {
+		reg = carrier.NewRegistry()
+		if err := reg.Register(carrier.KindTCP, func() (carrier.Carrier, error) {
+			return tcpcarrier.Carrier{}, nil
+		}); err != nil {
+			return nil, err
 		}
-		if cfg.RouterMAC != "" {
-			rawCfg.RouterMAC = cfg.RouterMAC
+
+		if err := reg.Register(carrier.KindTLSHTTP, func() (carrier.Carrier, error) {
+			return tlscarrier.New(tlscarrier.Config{
+				Insecure:   cfg.InsecureTLS,
+				ServerName: cfg.ServerName,
+			}), nil
+		}); err != nil {
+			return nil, err
 		}
-		return rawpaqcarrier.New(rawCfg, rawpaqcarrier.DefaultBackend(), nil)
-	}); err != nil {
-		return nil, err
+
+		if err := reg.Register(carrier.KindRawPaq, func() (carrier.Carrier, error) {
+			rawCfg := rawpaqcarrier.DefaultConfig()
+			if cfg.InterfaceName != "" {
+				rawCfg.InterfaceName = cfg.InterfaceName
+			}
+			if cfg.RouterMAC != "" {
+				rawCfg.RouterMAC = cfg.RouterMAC
+			}
+			return rawpaqcarrier.New(rawCfg, rawpaqcarrier.DefaultBackend(), nil)
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	rules, portMap := ParseRules(cfg.Ports)
@@ -105,6 +112,42 @@ func (e *Engine) ActiveSession() *Session {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.session
+}
+
+func (e *Engine) getReadySession() *Session {
+	return e.WaitForSession(context.Background(), 3*time.Second)
+}
+
+// WaitForSession waits for an active, non-closed session up to the given timeout.
+func (e *Engine) WaitForSession(ctx context.Context, timeout time.Duration) *Session {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(30 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		e.mu.RLock()
+		sess := e.session
+		e.mu.RUnlock()
+
+		if sess != nil {
+			select {
+			case <-sess.closed:
+				// session is closed, keep waiting
+			default:
+				return sess
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-timer.C:
+			return nil
+		case <-ticker.C:
+		}
+	}
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -163,7 +206,7 @@ func (e *Engine) runServer(ctx context.Context, car carrier.Carrier) error {
 	// Start user-facing forward listeners on configured ports
 	e.mu.Lock()
 	for _, rule := range e.rules {
-		fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.ActiveSession)
+		fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.getReadySession)
 		if err != nil {
 			log.Printf("[Hawal-v2] ⚠️ Failed to bind forward port %s: %v", rule.ListenPort, err)
 			continue
@@ -223,7 +266,7 @@ func (e *Engine) handleServerLink(ctx context.Context, link carrier.Link) {
 		return
 	}
 
-	sess, err := NewSession(link, codec, true)
+	sess, err := NewSessionWithOptions(link, codec, true, e.cfg.SessionOpts)
 	if err != nil {
 		log.Printf("[Hawal-v2] Failed to create session: %v", err)
 		_ = link.Close()
@@ -255,7 +298,7 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 	e.mu.Lock()
 	if len(e.listeners) == 0 && len(e.rules) > 0 {
 		for _, rule := range e.rules {
-			fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.ActiveSession)
+			fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.getReadySession)
 			if err != nil {
 				log.Printf("[Hawal-v2] ⚠️ Failed to bind forward port %s: %v", rule.ListenPort, err)
 				continue
@@ -326,7 +369,7 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 			continue
 		}
 
-		sess, err := NewSession(link, codec, false)
+		sess, err := NewSessionWithOptions(link, codec, false, e.cfg.SessionOpts)
 		if err != nil {
 			log.Printf("[Hawal-v2] Failed to create session: %v", err)
 			_ = link.Close()
@@ -341,10 +384,20 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 
 		// Serve egress streams received from server
 		if err := ServeEgress(ctx, sess, e.portMap, e.cfg.NoDelay); err != nil && ctx.Err() == nil {
-			log.Printf("[Hawal-v2] Tunnel dropped: %v. Reconnecting in 2s...", err)
+			log.Printf("[Hawal-v2] Tunnel dropped: %v. Reconnecting...", err)
 		}
 
 		_ = sess.Close()
-		time.Sleep(2 * time.Second)
+		e.mu.Lock()
+		if e.session == sess {
+			e.session = nil
+		}
+		e.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
 	}
 }

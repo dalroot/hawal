@@ -189,13 +189,15 @@ func (l *link) Write(b []byte) (int, error) {
 
 func (l *link) Close() error {
 	l.closeOnce.Do(func() {
-		if err := l.UDPSession.Close(); err != nil {
-			l.closeErr = err
-		}
+		var pcErr error
 		if l.packetConn != nil {
-			if err := l.packetConn.Close(); err != nil && l.closeErr == nil {
-				l.closeErr = err
-			}
+			pcErr = l.packetConn.Close()
+		}
+		udpErr := l.UDPSession.Close()
+		if pcErr != nil {
+			l.closeErr = pcErr
+		} else {
+			l.closeErr = udpErr
 		}
 	})
 	return l.closeErr
