@@ -12,6 +12,11 @@ LOG_PATH = os.path.join(DATA_DIR, "hawal.log")
 DEFAULT_PORT = 9090
 DEFAULT_HOST = "0.0.0.0"
 
+PANEL_VERSION = "2.5.1"
+GITHUB_REPO = "dalroot/hawal"
+PANEL_DIR = os.environ.get("HAWAL_PANEL_DIR", "/opt/hawal-panel")
+
+
 # Default dynamic settings that can be customized in the Panel UI
 DEFAULT_SETTINGS = {
     "app_name": "Hawal Tunnel (هه‌واڵ)",

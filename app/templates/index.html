@@ -187,12 +187,12 @@
           <span class="nav-label">Log Out</span>
         </button>
 
-        <a href="https://github.com/dalroot/hawal" target="_blank" rel="noopener noreferrer" class="sidebar-version-wrap" title="Hawal v2 on GitHub (dalroot/hawal)" style="text-decoration: none; color: inherit; cursor: pointer;">
+        <div id="sidebarVersionWrap" class="sidebar-version-wrap" title="Hawal Panel Version & Update" style="cursor: pointer;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
           </svg>
-          <span class="version-text num">v2.5.0</span>
-        </a>
+          <span class="version-text num" id="sidebarVersionText">v2.5.1</span>
+        </div>
       </div>
     </aside>
 
@@ -214,7 +214,15 @@
                 <span class="status-dot"></span>
                 <span>Paqet Wire · Connected</span>
               </span>
-              <span class="version-tag">Core v2.5.0</span>
+              <span class="version-tag" id="topVersionTag" style="cursor: pointer;" title="Hawal Core version (Click to view updates)">Core v2.5.1</span>
+              <button type="button" class="update-badge" id="btnUpdateAvailable" style="display: none;" title="New update available">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span id="updateBadgeText">Update</span>
+              </button>
             </div>
 
             <!-- Functional Operational Buttons -->
@@ -1547,7 +1555,97 @@
     </div>
   </div>
 
+  <!-- Modal: Update Panel (3X-UI Inspired One-Click In-Place Updater) -->
+  <div class="modal-overlay" id="updatePanelModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
+    <div class="modal-container" style="max-width: 520px;">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title" id="updateModalTitle">Update Panel</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseUpdateModal" title="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-form-body" style="padding: 20px 24px;">
+        <!-- Yellow Warning Alert Banner -->
+        <div class="update-alert-card">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 1px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <div style="font-size: 13px; line-height: 1.5;">
+            This will update Hawal Panel itself to the latest release and restart the panel service.
+          </div>
+        </div>
+
+        <!-- Update Info Rows -->
+        <div class="update-rows-card">
+          <!-- Row 1: Dev channel toggle -->
+          <div class="update-row">
+            <span class="update-row-label">Dev channel</span>
+            <label class="hw-switch" title="Toggle between stable releases and latest master branch commits">
+              <input type="checkbox" id="toggleDevChannel">
+              <span class="hw-switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- Row 2: Current panel version -->
+          <div class="update-row">
+            <span class="update-row-label">Current panel version</span>
+            <span class="version-pill-green" id="updateModalCurVersion">v2.5.1</span>
+          </div>
+
+          <!-- Row 3: Latest panel version -->
+          <div class="update-row">
+            <span class="update-row-label">Latest panel version</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="version-pill-purple" id="updateModalLatestVersion">Checking...</span>
+              <button type="button" id="btnRefreshVersionCheck" title="Check for updates again" style="background: none; border: none; cursor: pointer; color: var(--text-dim); display: flex; align-items: center; padding: 2px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Release Notes / Commit description snippet -->
+        <div id="updateReleaseNotesBox" style="display: none; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text-secondary); max-height: 110px; overflow-y: auto; margin-bottom: 16px;">
+        </div>
+
+        <!-- Live Progress / Status Notice during updating -->
+        <div id="updateProgressBox" style="display: none; align-items: center; gap: 10px; padding: 12px 14px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; color: #3b82f6; font-size: 13px; margin-bottom: 16px;">
+          <svg class="hw-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+            <path d="M12 2a10 10 0 0 1 10 10"></path>
+          </svg>
+          <span id="updateProgressText">Downloading update and applying...</span>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="justify-content: flex-end; padding: 14px 24px;">
+        <button type="button" class="btn-update-panel" id="btnDoUpdatePanel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="btnDoUpdatePanelText">Update Panel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Dropdown: Action Menu for Node ⋯ button -->
+
   <div id="nodeActionDropdown" class="action-dropdown-menu" style="display: none;">
     <button type="button" class="dropdown-item" data-node-action="ping">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
@@ -4606,6 +4704,177 @@
     syncAllData();
     setInterval(syncAllData, 5000);
     initWebSocket();
+
+    // ========================================================
+    // 3X-UI Style One-Click Panel Update Controller
+    // ========================================================
+    const updateModal = document.getElementById('updatePanelModal');
+    const btnUpdateAvailable = document.getElementById('btnUpdateAvailable');
+    const updateBadgeText = document.getElementById('updateBadgeText');
+    const btnCloseUpdateModal = document.getElementById('btnCloseUpdateModal');
+    const toggleDevChannel = document.getElementById('toggleDevChannel');
+    const updateModalCurVersion = document.getElementById('updateModalCurVersion');
+    const updateModalLatestVersion = document.getElementById('updateModalLatestVersion');
+    const btnRefreshVersionCheck = document.getElementById('btnRefreshVersionCheck');
+    const updateReleaseNotesBox = document.getElementById('updateReleaseNotesBox');
+    const updateProgressBox = document.getElementById('updateProgressBox');
+    const updateProgressText = document.getElementById('updateProgressText');
+    const btnDoUpdatePanel = document.getElementById('btnDoUpdatePanel');
+    const btnDoUpdatePanelText = document.getElementById('btnDoUpdatePanelText');
+    const topVersionTag = document.getElementById('topVersionTag');
+    const sidebarVersionWrap = document.getElementById('sidebarVersionWrap');
+    const sidebarVersionText = document.getElementById('sidebarVersionText');
+
+    let CURRENT_VERSION_INFO = null;
+    let isUpdating = false;
+
+    function openUpdateModal() {
+      if (updateModal) {
+        updateModal.style.display = 'flex';
+        checkPanelVersion(false, toggleDevChannel ? toggleDevChannel.checked : false);
+      }
+    }
+
+    function closeUpdateModal() {
+      if (isUpdating) return;
+      if (updateModal) updateModal.style.display = 'none';
+    }
+
+    if (btnUpdateAvailable) btnUpdateAvailable.addEventListener('click', openUpdateModal);
+    if (topVersionTag) topVersionTag.addEventListener('click', openUpdateModal);
+    if (sidebarVersionWrap) sidebarVersionWrap.addEventListener('click', openUpdateModal);
+    if (btnCloseUpdateModal) btnCloseUpdateModal.addEventListener('click', closeUpdateModal);
+    if (updateModal) {
+      updateModal.addEventListener('click', (e) => {
+        if (e.target === updateModal) closeUpdateModal();
+      });
+    }
+
+    async function checkPanelVersion(force = false, dev = false) {
+      if (updateModalLatestVersion) {
+        updateModalLatestVersion.textContent = 'Checking...';
+      }
+      try {
+        const queryParams = new URLSearchParams();
+        if (force) queryParams.set('force', '1');
+        if (dev) queryParams.set('dev', '1');
+        const res = await fetch(`/api/panel/version?${queryParams.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        CURRENT_VERSION_INFO = data;
+
+        if (updateModalCurVersion) updateModalCurVersion.textContent = data.current_version;
+        if (sidebarVersionText) sidebarVersionText.textContent = data.current_version;
+        if (topVersionTag) topVersionTag.textContent = `Core ${data.current_version}`;
+        if (updateModalLatestVersion) updateModalLatestVersion.textContent = data.latest_version;
+
+        if (data.update_available) {
+          if (btnUpdateAvailable) {
+            btnUpdateAvailable.style.display = 'inline-flex';
+            if (updateBadgeText) updateBadgeText.textContent = `Update ${data.latest_version}`;
+          }
+          if (btnDoUpdatePanel) {
+            btnDoUpdatePanel.disabled = false;
+          }
+        } else {
+          if (btnUpdateAvailable) btnUpdateAvailable.style.display = 'none';
+          if (btnDoUpdatePanel) {
+            btnDoUpdatePanel.disabled = !dev;
+          }
+        }
+
+        if (updateReleaseNotesBox) {
+          if (data.release_notes || data.release_name) {
+            updateReleaseNotesBox.style.display = 'block';
+            updateReleaseNotesBox.innerHTML = `<strong>${data.release_name || ''}</strong><br><span style="white-space: pre-wrap;">${data.release_notes || ''}</span>`;
+          } else {
+            updateReleaseNotesBox.style.display = 'none';
+          }
+        }
+      } catch (err) {
+        if (updateModalLatestVersion) updateModalLatestVersion.textContent = 'Error';
+        console.warn('Failed to check panel version:', err);
+      }
+    }
+
+    if (toggleDevChannel) {
+      toggleDevChannel.addEventListener('change', () => {
+        checkPanelVersion(true, toggleDevChannel.checked);
+      });
+    }
+
+    if (btnRefreshVersionCheck) {
+      btnRefreshVersionCheck.addEventListener('click', () => {
+        checkPanelVersion(true, toggleDevChannel ? toggleDevChannel.checked : false);
+      });
+    }
+
+    if (btnDoUpdatePanel) {
+      btnDoUpdatePanel.addEventListener('click', async () => {
+        if (isUpdating) return;
+        const dev = toggleDevChannel ? toggleDevChannel.checked : false;
+        const targetVer = CURRENT_VERSION_INFO ? CURRENT_VERSION_INFO.latest_version : null;
+
+        isUpdating = true;
+        btnDoUpdatePanel.disabled = true;
+        if (btnCloseUpdateModal) btnCloseUpdateModal.style.display = 'none';
+        if (btnDoUpdatePanelText) btnDoUpdatePanelText.textContent = 'Updating...';
+        if (updateProgressBox) {
+          updateProgressBox.style.display = 'flex';
+          if (updateProgressText) updateProgressText.textContent = 'Downloading latest release & verifying syntax...';
+        }
+
+        try {
+          const res = await fetch('/api/panel/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dev: dev, version: targetVer })
+          });
+          const result = await res.json();
+          if (!res.ok || result.error) {
+            throw new Error(result.error || `HTTP ${res.status}`);
+          }
+
+          if (updateProgressText) {
+            updateProgressText.textContent = 'Update installed! Restarting panel service & reconnecting...';
+          }
+
+          let reconnectAttempts = 0;
+          const pollInterval = setInterval(async () => {
+            reconnectAttempts++;
+            try {
+              const pingRes = await fetch('/api/panel/version?force=1', { cache: 'no-store' });
+              if (pingRes.ok) {
+                const newVerData = await pingRes.json();
+                clearInterval(pollInterval);
+                if (updateProgressText) updateProgressText.textContent = 'Service is online! Reloading page...';
+                showToast(`Hawal Panel updated successfully to ${newVerData.current_version}!`, 'success');
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1200);
+              }
+            } catch (pollErr) {
+              if (reconnectAttempts > 40) {
+                clearInterval(pollInterval);
+                if (updateProgressText) updateProgressText.textContent = 'Service restart taking longer than expected. Please refresh page manually.';
+              }
+            }
+          }, 1500);
+
+        } catch (err) {
+          isUpdating = false;
+          btnDoUpdatePanel.disabled = false;
+          if (btnCloseUpdateModal) btnCloseUpdateModal.style.display = '';
+          if (btnDoUpdatePanelText) btnDoUpdatePanelText.textContent = 'Update Panel';
+          if (updateProgressBox) updateProgressBox.style.display = 'none';
+          showToast(`Update failed: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    setTimeout(() => checkPanelVersion(false, false), 1500);
+    setInterval(() => checkPanelVersion(false, false), 15 * 60 * 1000);
   </script>
 </body>
 </html>
+

@@ -11,7 +11,8 @@ import socket
 import struct
 import subprocess
 import urllib.parse
-from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN
+import urllib.request
+from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN, PANEL_VERSION, GITHUB_REPO, PANEL_DIR
 from app.db import (
     init_db, list_nodes, get_node, get_node_by_token, save_node, delete_node,
     update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
@@ -99,6 +100,182 @@ async def broadcast_ws(data):
             dead.append(writer)
     for w in dead:
         CONNECTED_WS_CLIENTS.discard(w)
+
+_VERSION_CACHE = {
+    "data": None,
+    "ts": 0,
+    "dev": False
+}
+
+def parse_semver(v):
+    parts = re.findall(r'\d+', str(v))
+    return tuple(int(x) for x in parts) if parts else (0,)
+
+def fetch_panel_version_sync(dev=False):
+    repo = GITHUB_REPO
+    cur_ver = f"v{PANEL_VERSION.lstrip('v')}"
+    if dev:
+        url = f"https://api.github.com/repos/{repo}/commits/master"
+        req = urllib.request.Request(url, headers={"User-Agent": f"HawalPanel/{PANEL_VERSION}"})
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                sha = data.get("sha", "")[:7]
+                msg = data.get("commit", {}).get("message", "").split("\n")[0]
+                date = data.get("commit", {}).get("author", {}).get("date", "")
+                latest_ver = f"dev-{sha}" if sha else "master"
+                return {
+                    "current_version": cur_ver,
+                    "latest_version": latest_ver,
+                    "update_available": True,
+                    "dev_channel": True,
+                    "release_name": f"Master ({sha}): {msg[:50]}",
+                    "release_notes": msg,
+                    "release_url": f"https://github.com/{repo}/commit/{sha}" if sha else f"https://github.com/{repo}",
+                    "published_at": date
+                }
+        except Exception as e:
+            try:
+                out = subprocess.check_output(["git", "ls-remote", f"https://github.com/{repo}.git", "HEAD"], text=True, timeout=5)
+                sha = out.split()[0][:7] if out else "master"
+                return {
+                    "current_version": cur_ver,
+                    "latest_version": f"dev-{sha}",
+                    "update_available": True,
+                    "dev_channel": True,
+                    "release_name": f"Master ({sha})",
+                    "release_notes": "Latest master branch commit",
+                    "release_url": f"https://github.com/{repo}",
+                    "published_at": ""
+                }
+            except Exception as e2:
+                return {
+                    "current_version": cur_ver,
+                    "latest_version": cur_ver,
+                    "update_available": False,
+                    "dev_channel": True,
+                    "release_name": "Error fetching dev commit",
+                    "release_notes": str(e),
+                    "release_url": f"https://github.com/{repo}",
+                    "published_at": ""
+                }
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers={"User-Agent": f"HawalPanel/{PANEL_VERSION}"})
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                tag_name = data.get("tag_name", "")
+                latest_ver = tag_name if tag_name.startswith("v") else f"v{tag_name}"
+                name = data.get("name", latest_ver)
+                body = data.get("body", "")
+                html_url = data.get("html_url", f"https://github.com/{repo}/releases")
+                pub_date = data.get("published_at", "")
+
+                cur_tuple = parse_semver(cur_ver)
+                latest_tuple = parse_semver(latest_ver)
+                update_avail = latest_tuple > cur_tuple
+
+                return {
+                    "current_version": cur_ver,
+                    "latest_version": latest_ver,
+                    "update_available": update_avail,
+                    "dev_channel": False,
+                    "release_name": name,
+                    "release_notes": body,
+                    "release_url": html_url,
+                    "published_at": pub_date
+                }
+        except Exception as e:
+            return {
+                "current_version": cur_ver,
+                "latest_version": cur_ver,
+                "update_available": False,
+                "dev_channel": False,
+                "release_name": "Error checking release",
+                "release_notes": str(e),
+                "release_url": f"https://github.com/{repo}/releases",
+                "published_at": ""
+            }
+
+async def get_panel_version_info(dev=False, force=False):
+    global _VERSION_CACHE
+    now = time.time()
+    if not force and _VERSION_CACHE["data"] and (now - _VERSION_CACHE["ts"] < 600) and (_VERSION_CACHE["dev"] == dev):
+        return _VERSION_CACHE["data"]
+
+    data = await asyncio.to_thread(fetch_panel_version_sync, dev)
+    if "Error" not in data.get("release_name", ""):
+        _VERSION_CACHE = {
+            "data": data,
+            "ts": now,
+            "dev": dev
+        }
+    return data
+
+def update_panel_sync(dev=False, target_version=None):
+    repo = GITHUB_REPO
+    install_dir = PANEL_DIR
+    if not os.path.exists(install_dir):
+        install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    if dev:
+        tar_url = f"https://github.com/{repo}/archive/refs/heads/master.tar.gz"
+    else:
+        ver = target_version or f"v{PANEL_VERSION.lstrip('v')}"
+        if not ver.startswith("v") and not ver.startswith("dev-"):
+            ver = f"v{ver}"
+        if ver.startswith("dev-") or ver == "master":
+            tar_url = f"https://github.com/{repo}/archive/refs/heads/master.tar.gz"
+        else:
+            tar_url = f"https://github.com/{repo}/archive/refs/tags/{ver}.tar.gz"
+
+    staging_dir = "/tmp/hawal-update-staging"
+    tar_path = "/tmp/hawal-update.tar.gz"
+
+    cmd_dl = f"curl -fsSL '{tar_url}' -o '{tar_path}'"
+    res = subprocess.run(cmd_dl, shell=True, capture_output=True, text=True, timeout=60)
+    if res.returncode != 0:
+        if not dev:
+            fallback_url = f"https://github.com/{repo}/archive/refs/heads/master.tar.gz"
+            res = subprocess.run(f"curl -fsSL '{fallback_url}' -o '{tar_path}'", shell=True, capture_output=True, text=True, timeout=60)
+        if res.returncode != 0:
+            raise RuntimeError(f"Failed to download update package: {res.stderr.strip() or res.stdout.strip()}")
+
+    subprocess.run(f"rm -rf '{staging_dir}' && mkdir -p '{staging_dir}'", shell=True, check=True)
+    res_tar = subprocess.run(f"tar -xzf '{tar_path}' -C '{staging_dir}' --strip-components=1", shell=True, capture_output=True, text=True)
+    if res_tar.returncode != 0:
+        raise RuntimeError(f"Failed to extract update archive: {res_tar.stderr.strip()}")
+
+    check_files = [
+        os.path.join(staging_dir, "server.py"),
+        os.path.join(staging_dir, "app", "server.py"),
+        os.path.join(staging_dir, "app", "config.py")
+    ]
+    for cf in check_files:
+        if not os.path.exists(cf):
+            raise RuntimeError(f"Integrity check failed: missing required file {os.path.basename(cf)}")
+
+    compile_cmd = f"python3 -m py_compile {staging_dir}/server.py {staging_dir}/app/*.py"
+    res_compile = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True)
+    if res_compile.returncode != 0:
+        raise RuntimeError(f"Code validation failed (syntax error): {res_compile.stderr.strip()}")
+
+    cp_cmd = f"cp -r {staging_dir}/* '{install_dir}/'"
+    res_cp = subprocess.run(cp_cmd, shell=True, capture_output=True, text=True)
+    if res_cp.returncode != 0:
+        raise RuntimeError(f"Failed to copy files to {install_dir}: {res_cp.stderr.strip()}")
+
+    for exec_file in ["server.py", "start.sh", "install-panel.sh"]:
+        p = os.path.join(install_dir, exec_file)
+        if os.path.exists(p):
+            try:
+                os.chmod(p, 0o755)
+            except Exception:
+                pass
+
+    subprocess.run(f"rm -rf '{staging_dir}' '{tar_path}'", shell=True)
+    return True
 
 class HTTPServer:
     def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
@@ -421,8 +598,8 @@ class HTTPServer:
             await self.serve_node_installer(query, headers, writer)
             return
 
-        # 4. Agent endpoints (Authenticated via node bearer token)
-        if path.startswith("/api/agent/"):
+        # 4. Agent endpoints & public status endpoints
+        if path.startswith("/api/agent/") or (method == "GET" and path == "/api/panel/version"):
             pass
         elif path.startswith("/api/"):
             if not is_authenticated:
@@ -671,6 +848,44 @@ class HTTPServer:
             self.send_json(writer, {"success": True, "settings": current})
             await broadcast_ws({"event": "settings_updated"})
             return
+
+        if method == "GET" and path == "/api/panel/version":
+            dev = query.get("dev", ["0"])[0] in ["1", "true", "True"]
+            force = query.get("force", ["0"])[0] in ["1", "true", "True"]
+            info = await get_panel_version_info(dev=dev, force=force)
+            self.send_json(writer, info)
+            return
+
+        if method == "POST" and path == "/api/panel/update":
+            data = {}
+            if body:
+                try:
+                    data = json.loads(body.decode('utf-8'))
+                except Exception:
+                    pass
+            dev = bool(data.get("dev", False))
+            target_version = data.get("version")
+
+            try:
+                await asyncio.to_thread(update_panel_sync, dev=dev, target_version=target_version)
+            except Exception as e:
+                self.send_json(writer, {"error": f"Update failed: {str(e)}"}, status=500)
+                return
+
+            self.send_json(writer, {
+                "status": "ok",
+                "message": "Panel successfully updated. Restarting panel service..."
+            })
+
+            async def schedule_restart():
+                await asyncio.sleep(1)
+                try:
+                    subprocess.Popen(["systemctl", "restart", "hawal-panel"])
+                except Exception:
+                    pass
+            asyncio.create_task(schedule_restart())
+            return
+
 
         if method == "GET" and "/api/tunnels/" in path and path.endswith("/logs"):
             tunnel_id = path.split("/")[3]
