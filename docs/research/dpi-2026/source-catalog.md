@@ -52,6 +52,10 @@
 | S32 | Insertion, Evasion, and Denial of Service: Eluding Network Intrusion Detection | Thomas H. Ptacek, Timothy N. Newsham | ۱۹۹۸ | [گزارش پژوهشی تاریخی](http://insecure.org/stf/secnet_ids/secnet_ids.html) | تفاوت تحلیل جریان میان فایروال میانی و مقصد نهایی در بازسازی استک TCP |
 | S33 | udp2raw-tunnel & FakeTCP | Wang Yu | ۲۰۱۷–۲۰۲۰ | [مخزن رسمی](https://github.com/wangyu-/udp2raw-tunnel) | مبنای کپسوله‌سازی بسته‌های داده درون هدرهای TCP ساختگی با سوکت خام |
 | S34 | paqet: transport over raw packets | hanselime | ۲۰۲۴–۲۰۲۶ | [مخزن رسمی](https://github.com/hanselime/paqet) | پیاده‌سازی کاربردی KCP بر بستر فریم‌های خام لایه ۲ اترنت |
+| S35 | WireGuard: Next Generation Kernel Network Tunnel | Jason A. Donenfeld؛ NDSS | ۲۰۱۷ | [PDF](https://www.wireguard.com/papers/wireguard.pdf) | استاندارد In-Band Rekeying پریودیک (REKEY_AFTER_TIME = 120s) جهت احیای خودکار اتصال |
+| S36 | RFC 6528: Defending against Sequence Number Attacks | IETF | فوریه ۲۰۱۲ | [RFC](https://www.rfc-editor.org/rfc/rfc6528.html) | استاندارد اعتبارسنجی شماره‌های توالی TCP و رفتار فایروال در مواجهه با Out-of-State Packets |
+| S37 | Huawei ME60 Multi-Service Control Gateway Documentation | شرکت هوآوی | ۲۰۲۲–۲۰۲۵ | [Huawei HedEx](https://support.huawei.com) | مستندات رسمی مدیریت نشست‌های مشترکین، جداول CGNAT و تایمرهای Session Aging |
+| S38 | RFC 9000: QUIC Connection Migration & Path Validation | IETF | مه ۲۰۲۱ | [RFC](https://www.rfc-editor.org/rfc/rfc9000.html) | مکانیزم جابه‌جایی پورت و اعتبارسنجی مسیر بدون انقطاع سشن اپلیکیشن |
 
 ## منابعی که عمداً مبنای نتیجه نشدند
 
