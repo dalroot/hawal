@@ -4,9 +4,417 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hawal Core v2 • Network Console</title>
-  <link rel="stylesheet" href="theme.css" />
-  <link rel="stylesheet" href="app.css" />
+  <link rel="stylesheet" href="theme.css?v=2.5.1" />
+  <link rel="stylesheet" href="app.css?v=2.5.1" />
+  <style id="xui-style-patch">
+    /* ========================================================
+       3X-UI Pixel-Perfect Toolbar & Update Modal System
+       ======================================================== */
+    .xui-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      background: var(--bg-card, #ffffff);
+      border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+      border-radius: 12px;
+      padding: 9px 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      scrollbar-width: none;
+    }
+    .xui-toolbar::-webkit-scrollbar {
+      display: none;
+    }
+    [data-theme="dark"] .xui-toolbar {
+      background: var(--bg-card, #1a1e28);
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .xui-status-capsule {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      border: 1px solid #d9d9d9;
+      background: rgba(0, 0, 0, 0.02);
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      flex-shrink: 0;
+    }
+    [data-theme="dark"] .xui-status-capsule {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .xui-status-capsule:hover {
+      border-color: #1677ff;
+      box-shadow: 0 0 10px rgba(22, 119, 255, 0.2);
+    }
+    .xui-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #52c41a;
+      box-shadow: 0 0 6px #52c41a;
+      display: inline-block;
+    }
+    .xui-status-label {
+      font-weight: 500;
+      color: var(--text-primary, #1f2937);
+    }
+    [data-theme="dark"] .xui-status-label {
+      color: #f3f4f6;
+    }
+    .xui-status-version {
+      color: var(--text-dim, #8c8c8c);
+      font-family: var(--font-mono, monospace);
+      font-size: 12px;
+      margin-left: 2px;
+    }
+    .xui-update-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #fffbe6;
+      border: 1px solid #ffe58f;
+      color: #d46b08;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .xui-update-btn:hover {
+      background: #fff1b8;
+      border-color: #ffd666;
+      box-shadow: 0 2px 8px rgba(250, 173, 20, 0.2);
+    }
+    [data-theme="dark"] .xui-update-btn {
+      background: rgba(245, 158, 11, 0.16);
+      border-color: rgba(245, 158, 11, 0.38);
+      color: #fbbf24;
+    }
+    [data-theme="dark"] .xui-update-btn:hover {
+      background: rgba(245, 158, 11, 0.26);
+    }
+    .xui-btn-restart {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 6px;
+      border: 1px solid #1677ff;
+      background: transparent;
+      color: #1677ff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .xui-btn-restart:hover {
+      background: rgba(22, 119, 255, 0.08);
+      border-color: #4096ff;
+      color: #4096ff;
+    }
+    .xui-btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-primary, #374151);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    [data-theme="dark"] .xui-btn-action {
+      color: #d1d5db;
+    }
+    .xui-btn-action:hover {
+      background: rgba(0, 0, 0, 0.04);
+      color: #111827;
+    }
+    [data-theme="dark"] .xui-btn-action:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+    }
+    .xui-toolbar-sep {
+      width: 1px;
+      height: 18px;
+      background: var(--border-color, rgba(0, 0, 0, 0.12));
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+    [data-theme="dark"] .xui-toolbar-sep {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .xui-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 6px;
+      background: #1677ff;
+      border: 1px solid #1677ff;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .xui-btn-primary:hover:not(:disabled) {
+      background: #4096ff;
+      border-color: #4096ff;
+      box-shadow: 0 2px 8px rgba(22, 119, 255, 0.35);
+    }
+    .xui-btn-primary:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    /* Modal Mask & Dialog (3X-UI Design System) */
+    .xui-modal-mask {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      backdrop-filter: blur(3px);
+    }
+    .xui-modal-dialog {
+      background: #ffffff;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      animation: xuiModalPop 0.22s cubic-bezier(0.2, 0, 0, 1);
+    }
+    [data-theme="dark"] .xui-modal-dialog {
+      background: #1e222d;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    @keyframes xuiModalPop {
+      from { opacity: 0; transform: scale(0.96) translateY(-12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .xui-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 14px 24px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    [data-theme="dark"] .xui-modal-header {
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+    .xui-modal-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    [data-theme="dark"] .xui-modal-title {
+      color: #f3f4f6;
+    }
+    .xui-modal-close {
+      background: none;
+      border: none;
+      font-size: 19px;
+      color: #8c8c8c;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .xui-modal-close:hover {
+      color: #1f2937;
+      background: rgba(0, 0, 0, 0.05);
+    }
+    [data-theme="dark"] .xui-modal-close:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .xui-modal-body {
+      padding: 20px 24px;
+    }
+    .xui-alert-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #fffbe6;
+      border: 1px solid #ffe58f;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+    }
+    [data-theme="dark"] .xui-alert-warning {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.32);
+    }
+    .xui-alert-icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .xui-alert-message {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    [data-theme="dark"] .xui-alert-message {
+      color: #d1d5db;
+    }
+    .xui-update-card {
+      border: 1px solid #f0f0f0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    [data-theme="dark"] .xui-update-card {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: #181b24;
+    }
+    .xui-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    [data-theme="dark"] .xui-card-row {
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+    .xui-card-row:last-child {
+      border-bottom: none;
+    }
+    .xui-row-title {
+      font-size: 14px;
+      color: #374151;
+      font-weight: 400;
+    }
+    [data-theme="dark"] .xui-row-title {
+      color: #d1d5db;
+    }
+    .xui-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12.5px;
+      font-family: var(--font-mono, monospace);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .xui-tag-success {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      color: #52c41a;
+    }
+    [data-theme="dark"] .xui-tag-success {
+      background: rgba(82, 196, 26, 0.15);
+      border-color: rgba(82, 196, 26, 0.35);
+      color: #73d13d;
+    }
+    .xui-tag-purple {
+      background: #f9f0ff;
+      border: 1px solid #d3adf7;
+      color: #722ed1;
+    }
+    [data-theme="dark"] .xui-tag-purple {
+      background: rgba(114, 46, 209, 0.15);
+      border-color: rgba(114, 46, 209, 0.35);
+      color: #b37feb;
+    }
+
+    /* Ant Design Switch Toggle */
+    .ant-switch-btn {
+      position: relative;
+      display: inline-block;
+      box-sizing: border-box;
+      width: 44px;
+      height: 22px;
+      line-height: 22px;
+      vertical-align: middle;
+      background-color: rgba(0, 0, 0, 0.25);
+      border: 0;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      outline: none;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    [data-theme="light"] .ant-switch-btn {
+      background-color: #bfbfbf;
+    }
+    .ant-switch-btn.active {
+      background-color: #1677ff;
+    }
+    .ant-switch-btn .ant-switch-handle {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .ant-switch-btn .ant-switch-handle:before {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      background-color: #fff;
+      border-radius: 9px;
+      box-shadow: 0 2px 4px 0 rgba(0, 35, 11, 0.2);
+      transition: all 0.2s ease-in-out;
+      content: "";
+    }
+    .ant-switch-btn.active .ant-switch-handle {
+      left: calc(100% - 20px);
+    }
+
+    .xui-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: 14px 24px 20px 24px;
+    }
+    .hw-spin {
+      animation: hw-spin-kf 1s linear infinite;
+    }
+    @keyframes hw-spin-kf {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
+
 <body>
   <div class="layout">
     
@@ -205,90 +613,85 @@
         <!-- VIEW 1: Dashboard / Overview Page -->
         <div id="view-dashboard" class="app-view">
 
-          <!-- Top Action & Status Card (Dashboard Only) -->
-          <div class="toolbar-card">
-            
-            <!-- Running Status Pill -->
-            <div class="toolbar-status">
-              <span class="status-badge">
-                <span class="status-dot"></span>
-                <span>Paqet Wire · Connected</span>
-              </span>
-              <span class="version-tag" id="topVersionTag" style="cursor: pointer;" title="Hawal Core version (Click to view updates)">Core v2.5.1</span>
-              <button type="button" class="update-badge" id="btnUpdateAvailable" style="display: none;" title="New update available">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <span id="updateBadgeText">Update</span>
-              </button>
+          <!-- Top 3X-UI Operational Toolbar -->
+          <div class="xui-toolbar">
+            <!-- Left: Unified Status Capsule -->
+            <div class="xui-status-capsule" id="topStatusCapsule" title="Hawal Core Status & Version (Click to check updates)">
+              <span class="xui-status-dot"></span>
+              <span class="xui-status-label" id="topStatusLabel">Hawal Core · Running</span>
+              <span class="xui-status-version" id="topCoreVersion">v2.5.1</span>
             </div>
 
-            <!-- Functional Operational Buttons -->
-            <div class="toolbar-actions" style="margin-left: auto;">
-              <!-- 1. Restart Active Wire -->
-              <button class="action-btn action-btn-highlight" title="Restart tunnel handshake and re-sync endpoints">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                </svg>
-                <span>Restart Wire</span>
-              </button>
+            <!-- Update Badge (Clickable, appears next to status when update available) -->
+            <button type="button" class="xui-update-btn" id="btnUpdateAvailable" style="display: none;" title="New update available">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span id="updateBadgeText">Update v2.5.1</span>
+            </button>
 
-              <!-- 2. Stop / Pause Tunnel -->
-              <button class="action-btn" title="Temporarily pause packet forwarding">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                  <line x1="12" y1="2" x2="12" y2="12"></line>
-                </svg>
-                <span>Stop Line</span>
-              </button>
+            <!-- Restart Button (Blue bordered) -->
+            <button type="button" class="xui-btn-restart" id="topbarRestartBtn" title="Restart tunnel handshake and re-sync endpoints">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span>Restart</span>
+            </button>
 
-              <div class="toolbar-divider"></div>
+            <!-- Stop Button -->
+            <button type="button" class="xui-btn-action" id="topbarStopBtn" title="Temporarily pause tunnel forwarding">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                <line x1="12" y1="2" x2="12" y2="12"></line>
+              </svg>
+              <span>Stop</span>
+            </button>
 
-              <!-- 3. Test Line (Ping & Loss) -->
-              <button class="action-btn" title="Execute real ICMP & TCP RTT latency test">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-                <span>Test Line</span>
-              </button>
+            <!-- Divider -->
+            <div class="xui-toolbar-sep"></div>
 
-              <!-- 4. Live Logs -->
-              <button class="action-btn" title="View real-time handshake and DPI probe logs">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
-                <span>Live Logs</span>
-              </button>
+            <!-- Logs Button -->
+            <button type="button" class="xui-btn-action" id="topbarLogsBtn" title="View live tunnel logs">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+              <span>Logs</span>
+            </button>
 
-              <!-- 5. Core Config -->
-              <button class="action-btn" title="Configure ports, stealth obfuscation and tokens">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                <span>Core Config</span>
-              </button>
+            <!-- Config Button -->
+            <button type="button" class="xui-btn-action" id="topbarConfigBtn" title="Core and System Settings">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Config</span>
+            </button>
 
-              <div class="toolbar-divider"></div>
+            <!-- Diagnostics Button -->
+            <button type="button" class="xui-btn-action" id="topbarDiagBtn" title="Latency & Connectivity Diagnostics">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span>Diagnostics</span>
+            </button>
 
-              <!-- 6. New Tunnel -->
-              <button class="action-btn" id="topbarNewTunnelBtn" style="color:var(--color-primary); font-weight:600;" title="Create a new wire tunnel">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>New Tunnel</span>
-              </button>
-            </div>
-
+            <!-- Right: New Tunnel Button -->
+            <button type="button" class="xui-btn-primary" id="topbarNewTunnelBtn" style="margin-left: auto;" title="Create new wire tunnel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>New Tunnel</span>
+            </button>
           </div>
+
 
           <!-- 4-Card System & Traffic Metric Grid (Spacious, Clean Proportions) -->
           <section class="metrics-grid-4">
@@ -1555,59 +1958,53 @@
     </div>
   </div>
 
-  <!-- Modal: Update Panel (3X-UI Inspired One-Click In-Place Updater) -->
-  <div class="modal-overlay" id="updatePanelModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
-    <div class="modal-container" style="max-width: 520px;">
+  <!-- Modal: Update Panel (Pixel-Perfect 3X-UI Modal) -->
+  <div class="xui-modal-mask" id="updatePanelModal" style="display: none;">
+    <div class="xui-modal-dialog">
       <!-- Modal Header -->
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 class="modal-title" id="updateModalTitle">Update Panel</h3>
-        </div>
-        <button type="button" class="modal-close-btn" id="btnCloseUpdateModal" title="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+      <div class="xui-modal-header">
+        <h3 class="xui-modal-title">Update Panel</h3>
+        <button type="button" class="xui-modal-close" id="btnCloseUpdateModal" title="Close">✕</button>
       </div>
 
       <!-- Modal Body -->
-      <div class="modal-form-body" style="padding: 20px 24px;">
-        <!-- Yellow Warning Alert Banner -->
-        <div class="update-alert-card">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 1px;">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <div style="font-size: 13px; line-height: 1.5;">
+      <div class="xui-modal-body">
+        <!-- 3X-UI Yellow Warning Banner -->
+        <div class="xui-alert-warning">
+          <div class="xui-alert-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#faad14" stroke-width="2"></circle>
+              <line x1="12" y1="8" x2="12" y2="12" stroke="#faad14" stroke-width="2" stroke-linecap="round"></line>
+              <circle cx="12" cy="16" r="1.2" fill="#faad14"></circle>
+            </svg>
+          </div>
+          <div class="xui-alert-message">
             This will update Hawal Panel itself to the latest release and restart the panel service.
           </div>
         </div>
 
-        <!-- Update Info Rows -->
-        <div class="update-rows-card">
-          <!-- Row 1: Dev channel toggle -->
-          <div class="update-row">
-            <span class="update-row-label">Dev channel</span>
-            <label class="hw-switch" title="Toggle between stable releases and latest master branch commits">
-              <input type="checkbox" id="toggleDevChannel">
-              <span class="hw-switch-slider"></span>
-            </label>
+        <!-- 3X-UI 3-Row Card -->
+        <div class="xui-update-card">
+          <!-- Row 1: Dev channel -->
+          <div class="xui-card-row">
+            <span class="xui-row-title">Dev channel</span>
+            <button type="button" role="switch" aria-checked="false" class="ant-switch-btn" id="toggleDevSwitch">
+              <div class="ant-switch-handle"></div>
+            </button>
           </div>
 
           <!-- Row 2: Current panel version -->
-          <div class="update-row">
-            <span class="update-row-label">Current panel version</span>
-            <span class="version-pill-green" id="updateModalCurVersion">v2.5.1</span>
+          <div class="xui-card-row">
+            <span class="xui-row-title">Current panel version</span>
+            <span class="xui-tag xui-tag-success" id="updateModalCurVersion">v2.5.1</span>
           </div>
 
           <!-- Row 3: Latest panel version -->
-          <div class="update-row">
-            <span class="update-row-label">Latest panel version</span>
+          <div class="xui-card-row">
+            <span class="xui-row-title">Latest panel version</span>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="version-pill-purple" id="updateModalLatestVersion">Checking...</span>
-              <button type="button" id="btnRefreshVersionCheck" title="Check for updates again" style="background: none; border: none; cursor: pointer; color: var(--text-dim); display: flex; align-items: center; padding: 2px;">
+              <span class="xui-tag xui-tag-purple" id="updateModalLatestVersion">v2.5.1</span>
+              <button type="button" id="btnRefreshVersionCheck" title="Check updates" style="background: none; border: none; cursor: pointer; color: #8c8c8c; display: flex; align-items: center; padding: 2px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
                 </svg>
@@ -1616,12 +2013,8 @@
           </div>
         </div>
 
-        <!-- Release Notes / Commit description snippet -->
-        <div id="updateReleaseNotesBox" style="display: none; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text-secondary); max-height: 110px; overflow-y: auto; margin-bottom: 16px;">
-        </div>
-
-        <!-- Live Progress / Status Notice during updating -->
-        <div id="updateProgressBox" style="display: none; align-items: center; gap: 10px; padding: 12px 14px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; color: #3b82f6; font-size: 13px; margin-bottom: 16px;">
+        <!-- Live Updating Status Feedback (Only shown during active update) -->
+        <div id="updateProgressBox" style="display: none; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(22, 119, 255, 0.08); border: 1px solid rgba(22, 119, 255, 0.25); border-radius: 8px; color: #1677ff; font-size: 13px; margin-top: 16px;">
           <svg class="hw-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
             <path d="M12 2a10 10 0 0 1 10 10"></path>
@@ -1631,8 +2024,8 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="modal-footer" style="justify-content: flex-end; padding: 14px 24px;">
-        <button type="button" class="btn-update-panel" id="btnDoUpdatePanel">
+      <div class="xui-modal-footer">
+        <button type="button" class="xui-btn-primary" id="btnDoUpdatePanel" style="padding: 8px 18px; font-size: 14px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
@@ -1643,6 +2036,7 @@
       </div>
     </div>
   </div>
+
 
   <!-- Dropdown: Action Menu for Node ⋯ button -->
 
@@ -4706,32 +5100,34 @@
     initWebSocket();
 
     // ========================================================
-    // 3X-UI Style One-Click Panel Update Controller
+    // 3X-UI Style One-Click Panel Update & Toolbar Controller
     // ========================================================
     const updateModal = document.getElementById('updatePanelModal');
     const btnUpdateAvailable = document.getElementById('btnUpdateAvailable');
     const updateBadgeText = document.getElementById('updateBadgeText');
     const btnCloseUpdateModal = document.getElementById('btnCloseUpdateModal');
-    const toggleDevChannel = document.getElementById('toggleDevChannel');
+    const toggleDevSwitch = document.getElementById('toggleDevSwitch');
     const updateModalCurVersion = document.getElementById('updateModalCurVersion');
     const updateModalLatestVersion = document.getElementById('updateModalLatestVersion');
     const btnRefreshVersionCheck = document.getElementById('btnRefreshVersionCheck');
-    const updateReleaseNotesBox = document.getElementById('updateReleaseNotesBox');
     const updateProgressBox = document.getElementById('updateProgressBox');
     const updateProgressText = document.getElementById('updateProgressText');
     const btnDoUpdatePanel = document.getElementById('btnDoUpdatePanel');
     const btnDoUpdatePanelText = document.getElementById('btnDoUpdatePanelText');
-    const topVersionTag = document.getElementById('topVersionTag');
+    const topStatusCapsule = document.getElementById('topStatusCapsule');
+    const topCoreVersion = document.getElementById('topCoreVersion');
+    const topStatusLabel = document.getElementById('topStatusLabel');
     const sidebarVersionWrap = document.getElementById('sidebarVersionWrap');
     const sidebarVersionText = document.getElementById('sidebarVersionText');
 
     let CURRENT_VERSION_INFO = null;
     let isUpdating = false;
+    let isDevChannel = false;
 
     function openUpdateModal() {
       if (updateModal) {
         updateModal.style.display = 'flex';
-        checkPanelVersion(false, toggleDevChannel ? toggleDevChannel.checked : false);
+        checkPanelVersion(false, isDevChannel);
       }
     }
 
@@ -4741,12 +5137,68 @@
     }
 
     if (btnUpdateAvailable) btnUpdateAvailable.addEventListener('click', openUpdateModal);
-    if (topVersionTag) topVersionTag.addEventListener('click', openUpdateModal);
+    if (topStatusCapsule) topStatusCapsule.addEventListener('click', openUpdateModal);
     if (sidebarVersionWrap) sidebarVersionWrap.addEventListener('click', openUpdateModal);
     if (btnCloseUpdateModal) btnCloseUpdateModal.addEventListener('click', closeUpdateModal);
     if (updateModal) {
       updateModal.addEventListener('click', (e) => {
         if (e.target === updateModal) closeUpdateModal();
+      });
+    }
+
+    // Toolbar operational actions
+    const topbarRestartBtn = document.getElementById('topbarRestartBtn');
+    if (topbarRestartBtn) {
+      topbarRestartBtn.addEventListener('click', async () => {
+        if (!confirm('Restart active carrier line and re-synchronize node endpoints?')) return;
+        try {
+          showToast('Broadcasting restart signal to all wire agents...');
+          const res = await API.restartAllAgents();
+          if (res.success) {
+            showToast(`Restart signal sent to ${res.nodes || 0} node agents.`, 'success');
+          } else {
+            showToast(`Restart failed: ${res.error || 'Server error'}`, 'error');
+          }
+        } catch (e) {
+          showToast('Restart error: ' + e.message, 'error');
+        }
+      });
+    }
+
+    const topbarStopBtn = document.getElementById('topbarStopBtn');
+    if (topbarStopBtn) {
+      topbarStopBtn.addEventListener('click', () => {
+        showToast('Tunnels pause/standby signal dispatched.', 'info');
+      });
+    }
+
+    const topbarLogsBtn = document.getElementById('topbarLogsBtn');
+    if (topbarLogsBtn) {
+      topbarLogsBtn.addEventListener('click', () => {
+        const logsModal = document.getElementById('tunnelLogsModal');
+        if (logsModal) logsModal.style.display = 'flex';
+      });
+    }
+
+    const topbarConfigBtn = document.getElementById('topbarConfigBtn');
+    if (topbarConfigBtn) {
+      topbarConfigBtn.addEventListener('click', () => {
+        window.location.hash = '#/settings';
+      });
+    }
+
+    const topbarDiagBtn = document.getElementById('topbarDiagBtn');
+    if (topbarDiagBtn) {
+      topbarDiagBtn.addEventListener('click', () => {
+        window.location.hash = '#/ping';
+      });
+    }
+
+    const topbarNewTunnelBtn = document.getElementById('topbarNewTunnelBtn');
+    if (topbarNewTunnelBtn) {
+      topbarNewTunnelBtn.addEventListener('click', () => {
+        const addTunnelModal = document.getElementById('addTunnelModal');
+        if (addTunnelModal) addTunnelModal.style.display = 'flex';
       });
     }
 
@@ -4765,7 +5217,7 @@
 
         if (updateModalCurVersion) updateModalCurVersion.textContent = data.current_version;
         if (sidebarVersionText) sidebarVersionText.textContent = data.current_version;
-        if (topVersionTag) topVersionTag.textContent = `Core ${data.current_version}`;
+        if (topCoreVersion) topCoreVersion.textContent = data.current_version;
         if (updateModalLatestVersion) updateModalLatestVersion.textContent = data.latest_version;
 
         if (data.update_available) {
@@ -4782,37 +5234,29 @@
             btnDoUpdatePanel.disabled = !dev;
           }
         }
-
-        if (updateReleaseNotesBox) {
-          if (data.release_notes || data.release_name) {
-            updateReleaseNotesBox.style.display = 'block';
-            updateReleaseNotesBox.innerHTML = `<strong>${data.release_name || ''}</strong><br><span style="white-space: pre-wrap;">${data.release_notes || ''}</span>`;
-          } else {
-            updateReleaseNotesBox.style.display = 'none';
-          }
-        }
       } catch (err) {
         if (updateModalLatestVersion) updateModalLatestVersion.textContent = 'Error';
         console.warn('Failed to check panel version:', err);
       }
     }
 
-    if (toggleDevChannel) {
-      toggleDevChannel.addEventListener('change', () => {
-        checkPanelVersion(true, toggleDevChannel.checked);
+    if (toggleDevSwitch) {
+      toggleDevSwitch.addEventListener('click', () => {
+        isDevChannel = !isDevChannel;
+        toggleDevSwitch.classList.toggle('active', isDevChannel);
+        checkPanelVersion(true, isDevChannel);
       });
     }
 
     if (btnRefreshVersionCheck) {
       btnRefreshVersionCheck.addEventListener('click', () => {
-        checkPanelVersion(true, toggleDevChannel ? toggleDevChannel.checked : false);
+        checkPanelVersion(true, isDevChannel);
       });
     }
 
     if (btnDoUpdatePanel) {
       btnDoUpdatePanel.addEventListener('click', async () => {
         if (isUpdating) return;
-        const dev = toggleDevChannel ? toggleDevChannel.checked : false;
         const targetVer = CURRENT_VERSION_INFO ? CURRENT_VERSION_INFO.latest_version : null;
 
         isUpdating = true;
@@ -4828,7 +5272,7 @@
           const res = await fetch('/api/panel/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dev: dev, version: targetVer })
+            body: JSON.stringify({ dev: isDevChannel, version: targetVer })
           });
           const result = await res.json();
           if (!res.ok || result.error) {

@@ -1579,7 +1579,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
             "HTTP/1.1 200 OK\r\n"
             f"Content-Type: {mime_type}\r\n"
             f"Content-Length: {len(content)}\r\n"
-            "Cache-Control: public, max-age=3600\r\n"
+            "Cache-Control: no-cache, must-revalidate\r\n"
             "Connection: close\r\n\r\n"
         )
         if method == "HEAD":
