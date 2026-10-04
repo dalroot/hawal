@@ -107,6 +107,42 @@ func (e *Engine) ActiveSession() *Session {
 	return e.session
 }
 
+func (e *Engine) getReadySession() *Session {
+	return e.WaitForSession(context.Background(), 3*time.Second)
+}
+
+// WaitForSession waits for an active, non-closed session up to the given timeout.
+func (e *Engine) WaitForSession(ctx context.Context, timeout time.Duration) *Session {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(30 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		e.mu.RLock()
+		sess := e.session
+		e.mu.RUnlock()
+
+		if sess != nil {
+			select {
+			case <-sess.closed:
+				// session is closed, keep waiting
+			default:
+				return sess
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-timer.C:
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
 func (e *Engine) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	e.cancel = cancel
@@ -163,7 +199,7 @@ func (e *Engine) runServer(ctx context.Context, car carrier.Carrier) error {
 	// Start user-facing forward listeners on configured ports
 	e.mu.Lock()
 	for _, rule := range e.rules {
-		fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.ActiveSession)
+		fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.getReadySession)
 		if err != nil {
 			log.Printf("[Hawal-v2] ⚠️ Failed to bind forward port %s: %v", rule.ListenPort, err)
 			continue
@@ -255,7 +291,7 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 	e.mu.Lock()
 	if len(e.listeners) == 0 && len(e.rules) > 0 {
 		for _, rule := range e.rules {
-			fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.ActiveSession)
+			fl, err := StartForwardListener(rule, e.cfg.NoDelay, e.getReadySession)
 			if err != nil {
 				log.Printf("[Hawal-v2] ⚠️ Failed to bind forward port %s: %v", rule.ListenPort, err)
 				continue
@@ -341,10 +377,20 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 
 		// Serve egress streams received from server
 		if err := ServeEgress(ctx, sess, e.portMap, e.cfg.NoDelay); err != nil && ctx.Err() == nil {
-			log.Printf("[Hawal-v2] Tunnel dropped: %v. Reconnecting in 2s...", err)
+			log.Printf("[Hawal-v2] Tunnel dropped: %v. Reconnecting...", err)
 		}
 
 		_ = sess.Close()
-		time.Sleep(2 * time.Second)
+		e.mu.Lock()
+		if e.session == sess {
+			e.session = nil
+		}
+		e.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
 	}
 }

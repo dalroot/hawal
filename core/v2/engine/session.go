@@ -18,12 +18,27 @@ var (
 	ErrSessionClosed = errors.New("engine: session closed")
 )
 
+// SessionOptions controls keepalive and liveness detection parameters.
+type SessionOptions struct {
+	PingInterval    time.Duration
+	DeadLinkTimeout time.Duration
+}
+
+// DefaultSessionOptions returns the standard 15s ping / 45s dead-link threshold.
+func DefaultSessionOptions() SessionOptions {
+	return SessionOptions{
+		PingInterval:    15 * time.Second,
+		DeadLinkTimeout: 45 * time.Second,
+	}
+}
+
 // Session coordinates bidirectional multiplexed traffic over an authenticated carrier.Link.
 type Session struct {
 	link     carrier.Link
 	codec    *record.Codec
 	sched    *mux.Scheduler
 	isServer bool
+	opts     SessionOptions
 
 	streamsMu sync.RWMutex
 	streams   map[uint64]*Stream
@@ -42,6 +57,10 @@ type Session struct {
 }
 
 func NewSession(link carrier.Link, codec *record.Codec, isServer bool) (*Session, error) {
+	return NewSessionWithOptions(link, codec, isServer, DefaultSessionOptions())
+}
+
+func NewSessionWithOptions(link carrier.Link, codec *record.Codec, isServer bool, opts SessionOptions) (*Session, error) {
 	if link == nil || codec == nil {
 		return nil, errors.New("engine: link and codec are required")
 	}
@@ -60,11 +79,19 @@ func NewSession(link carrier.Link, codec *record.Codec, isServer bool) (*Session
 		initStreamID = 1 // Client will allocate 3, 5, 7... (first is 1)
 	}
 
+	if opts.PingInterval <= 0 {
+		opts.PingInterval = 15 * time.Second
+	}
+	if opts.DeadLinkTimeout <= 0 {
+		opts.DeadLinkTimeout = 45 * time.Second
+	}
+
 	s := &Session{
 		link:         link,
 		codec:        codec,
 		sched:        sched,
 		isServer:     isServer,
+		opts:         opts,
 		streams:      make(map[uint64]*Stream),
 		nextStreamID: initStreamID,
 		incoming:            make(chan *Stream, 128),
@@ -309,7 +336,16 @@ func (s *Session) inboundPump() {
 }
 
 func (s *Session) pingLoop() {
-	ticker := time.NewTicker(15 * time.Second)
+	interval := s.opts.PingInterval
+	if interval <= 0 {
+		interval = 15 * time.Second
+	}
+	timeout := s.opts.DeadLinkTimeout
+	if timeout <= 0 {
+		timeout = 45 * time.Second
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -328,9 +364,9 @@ func (s *Session) pingLoop() {
 				return
 			}
 
-			// 2. Dead-link autodetection: if no response/activity for > 45s, tear down session
+			// 2. Dead-link autodetection: if no response/activity for > timeout, tear down session
 			last := time.Unix(0, atomic.LoadInt64(&s.lastInboundActivity))
-			if time.Since(last) > 45*time.Second {
+			if time.Since(last) > timeout {
 				_ = s.CloseWithError(fmt.Errorf("engine: dead link detected (no activity for %v)", time.Since(last).Round(time.Second)))
 				return
 			}

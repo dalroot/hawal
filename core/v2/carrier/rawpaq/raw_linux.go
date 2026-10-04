@@ -240,6 +240,9 @@ func (c *rawTCPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 
 		n, _, err := unix.Recvfrom(c.fd, buf, 0)
 		if err != nil {
+			if c.closed.Load() || errors.Is(err, unix.EBADF) {
+				return 0, nil, net.ErrClosed
+			}
 			if errors.Is(err, unix.EINTR) {
 				continue
 			}
