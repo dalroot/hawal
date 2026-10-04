@@ -26,8 +26,9 @@ type Config struct {
 	NoDelay     bool         `json:"nodelay"`
 	InsecureTLS bool         `json:"insecure_tls"`
 	ServerName  string       `json:"server_name"`
-	InterfaceName string     `json:"interface"`
-	RouterMAC     string     `json:"router_mac"`
+	InterfaceName string         `json:"interface"`
+	RouterMAC     string         `json:"router_mac"`
+	SessionOpts   SessionOptions `json:"-"`
 }
 
 type Engine struct {
@@ -45,6 +46,10 @@ type Engine struct {
 }
 
 func NewEngine(cfg Config) (*Engine, error) {
+	return NewEngineWithRegistry(cfg, nil)
+}
+
+func NewEngineWithRegistry(cfg Config, reg *carrier.Registry) (*Engine, error) {
 	if cfg.Token == "" {
 		return nil, errors.New("engine: token is required")
 	}
@@ -61,33 +66,35 @@ func NewEngine(cfg Config) (*Engine, error) {
 		}
 	}
 
-	reg := carrier.NewRegistry()
-	if err := reg.Register(carrier.KindTCP, func() (carrier.Carrier, error) {
-		return tcpcarrier.Carrier{}, nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := reg.Register(carrier.KindTLSHTTP, func() (carrier.Carrier, error) {
-		return tlscarrier.New(tlscarrier.Config{
-			Insecure:   cfg.InsecureTLS,
-			ServerName: cfg.ServerName,
-		}), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := reg.Register(carrier.KindRawPaq, func() (carrier.Carrier, error) {
-		rawCfg := rawpaqcarrier.DefaultConfig()
-		if cfg.InterfaceName != "" {
-			rawCfg.InterfaceName = cfg.InterfaceName
+	if reg == nil {
+		reg = carrier.NewRegistry()
+		if err := reg.Register(carrier.KindTCP, func() (carrier.Carrier, error) {
+			return tcpcarrier.Carrier{}, nil
+		}); err != nil {
+			return nil, err
 		}
-		if cfg.RouterMAC != "" {
-			rawCfg.RouterMAC = cfg.RouterMAC
+
+		if err := reg.Register(carrier.KindTLSHTTP, func() (carrier.Carrier, error) {
+			return tlscarrier.New(tlscarrier.Config{
+				Insecure:   cfg.InsecureTLS,
+				ServerName: cfg.ServerName,
+			}), nil
+		}); err != nil {
+			return nil, err
 		}
-		return rawpaqcarrier.New(rawCfg, rawpaqcarrier.DefaultBackend(), nil)
-	}); err != nil {
-		return nil, err
+
+		if err := reg.Register(carrier.KindRawPaq, func() (carrier.Carrier, error) {
+			rawCfg := rawpaqcarrier.DefaultConfig()
+			if cfg.InterfaceName != "" {
+				rawCfg.InterfaceName = cfg.InterfaceName
+			}
+			if cfg.RouterMAC != "" {
+				rawCfg.RouterMAC = cfg.RouterMAC
+			}
+			return rawpaqcarrier.New(rawCfg, rawpaqcarrier.DefaultBackend(), nil)
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	rules, portMap := ParseRules(cfg.Ports)
@@ -259,7 +266,7 @@ func (e *Engine) handleServerLink(ctx context.Context, link carrier.Link) {
 		return
 	}
 
-	sess, err := NewSession(link, codec, true)
+	sess, err := NewSessionWithOptions(link, codec, true, e.cfg.SessionOpts)
 	if err != nil {
 		log.Printf("[Hawal-v2] Failed to create session: %v", err)
 		_ = link.Close()
@@ -362,7 +369,7 @@ func (e *Engine) runClient(ctx context.Context, car carrier.Carrier) error {
 			continue
 		}
 
-		sess, err := NewSession(link, codec, false)
+		sess, err := NewSessionWithOptions(link, codec, false, e.cfg.SessionOpts)
 		if err != nil {
 			log.Printf("[Hawal-v2] Failed to create session: %v", err)
 			_ = link.Close()
