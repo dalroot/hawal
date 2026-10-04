@@ -1,5 +1,3 @@
-import json
-
 def generate_hawal_core_server_config(tunnel_dict):
     """
     Generates JSON configuration dictionary for Hawal Core (Server Mode)

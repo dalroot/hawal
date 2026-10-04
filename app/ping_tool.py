@@ -1,8 +1,6 @@
 import asyncio
 import re
-import socket
 import time
-from app.db import record_ping
 
 async def run_ping(target_ip, count=4):
     """

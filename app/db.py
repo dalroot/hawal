@@ -85,34 +85,34 @@ def init_db():
         # Automatic migrations for existing databases
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN core_type TEXT NOT NULL DEFAULT 'hawal'")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_in INTEGER DEFAULT 0")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_out INTEGER DEFAULT 0")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN restart_nonce INTEGER NOT NULL DEFAULT 0")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN kcp_mode TEXT DEFAULT 'normal'")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN agent_restart_nonce INTEGER NOT NULL DEFAULT 0")
-        except:
+        except sqlite3.OperationalError:
             pass
         try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN country_code TEXT DEFAULT 'GLOBAL'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN country_name TEXT DEFAULT 'خارج'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN flag TEXT DEFAULT '🌐'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN city TEXT DEFAULT ''")
-        except:
+        except sqlite3.OperationalError:
             pass
 
         # Traffic samples time-series table
@@ -139,7 +139,7 @@ def init_db():
         ]:
             try:
                 cursor.execute(f"ALTER TABLE nodes ADD COLUMN {col} {col_type}")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass
         
         conn.commit()
@@ -246,7 +246,7 @@ def list_tunnels():
             d = dict(r)
             try:
                 d["ports"] = json.loads(d["ports_json"])
-            except:
+            except (json.JSONDecodeError, TypeError):
                 d["ports"] = []
             tunnels.append(d)
         return tunnels
@@ -259,7 +259,7 @@ def get_tunnel(tunnel_id):
         d = dict(row)
         try:
             d["ports"] = json.loads(d["ports_json"])
-        except:
+        except (json.JSONDecodeError, TypeError):
             d["ports"] = []
         return d
 

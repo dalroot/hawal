@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import asyncio
-import sys
 import argparse
 from app.server import HTTPServer
 from app.config import DEFAULT_PORT, DEFAULT_HOST

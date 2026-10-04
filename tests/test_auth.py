@@ -26,8 +26,8 @@ class TestHawalAuth(unittest.TestCase):
         from app.auth import hash_password, verify_password
         pwd = "SuperSecretPassword123!"
         pw_hash, salt = hash_password(pwd)
-        self.assertTrue(len(pw_hash) > 30)
-        self.assertTrue(len(salt) > 10)
+        self.assertGreater(len(pw_hash), 30)
+        self.assertGreater(len(salt), 10)
         self.assertTrue(verify_password(pwd, pw_hash, salt))
         self.assertFalse(verify_password("WrongPassword", pw_hash, salt))
 
@@ -50,7 +50,7 @@ class TestHawalAuth(unittest.TestCase):
         # Successful setup
         ok, tok, err = setup_admin("admin", "MySecurePass2026!")
         self.assertTrue(ok)
-        self.assertTrue(len(tok) > 20)
+        self.assertGreater(len(tok), 20)
         self.assertEqual(err, "")
         self.assertFalse(is_first_time_setup())
 

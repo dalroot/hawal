@@ -115,20 +115,27 @@ func (b *LinuxRawBackend) Open(ctx context.Context, req PacketRequest) (net.Pack
 	}
 
 	// Resolve local port
-	localPort := 0
+	var localPort uint16
 	if req.LocalAddress != "" {
 		_, pStr, err := net.SplitHostPort(req.LocalAddress)
 		if err == nil {
-			localPort, _ = strconv.Atoi(pStr)
+			if p, err := strconv.ParseUint(pStr, 10, 16); err == nil {
+				localPort = uint16(p)
+			}
 		}
 	}
 	if localPort == 0 {
-		localPort = pickEphemeralPort()
+		ephem := pickEphemeralPort()
+		if ephem > 0 && ephem <= 65535 {
+			localPort = uint16(ephem)
+		} else {
+			localPort = 45000
+		}
 	}
 
 	// Resolve remote endpoint (if dialer)
 	var remoteIP net.IP
-	remotePort := 0
+	var remotePort uint16
 	if req.Role == RoleDialer && req.RemoteAddress != "" {
 		host, pStr, err := net.SplitHostPort(req.RemoteAddress)
 		if err == nil {
@@ -139,7 +146,9 @@ func (b *LinuxRawBackend) Open(ctx context.Context, req PacketRequest) (net.Pack
 					break
 				}
 			}
-			remotePort, _ = strconv.Atoi(pStr)
+			if p, err := strconv.ParseUint(pStr, 10, 16); err == nil {
+				remotePort = uint16(p)
+			}
 		}
 	}
 
@@ -183,7 +192,7 @@ func (b *LinuxRawBackend) Open(ctx context.Context, req PacketRequest) (net.Pack
 	_ = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDBUF, 4*1024*1024)
 
 	// Attach in-kernel BPF filter to drop all unrelated traffic at kernel layer
-	if prog, err := buildBPFFilter(req.Role, uint16(localPort), uint16(remotePort)); err == nil {
+	if prog, err := buildBPFFilter(req.Role, localPort, remotePort); err == nil {
 		sockFilter := make([]unix.SockFilter, len(prog))
 		for i, inst := range prog {
 			sockFilter[i] = unix.SockFilter{Code: inst.Op, Jt: inst.Jt, Jf: inst.Jf, K: inst.K}
@@ -216,9 +225,9 @@ type rawTCPPacketConn struct {
 	fd          int
 	iface       *net.Interface
 	localIP     net.IP
-	localPort   int
+	localPort   uint16
 	remoteIP    net.IP
-	remotePort  int
+	remotePort  uint16
 	routerMAC   net.HardwareAddr
 	role        Role
 	seqCounter  atomic.Uint32
@@ -259,10 +268,10 @@ func (c *rawTCPPacketConn) ReadFrom(p []byte) (int, net.Addr, error) {
 		}
 
 		// Port filtering verification (backup in case BPF is bypassed)
-		if int(dstPort) != c.localPort {
+		if dstPort != c.localPort {
 			continue
 		}
-		if c.role == RoleDialer && c.remotePort > 0 && int(srcPort) != c.remotePort {
+		if c.role == RoleDialer && c.remotePort > 0 && srcPort != c.remotePort {
 			continue
 		}
 
@@ -286,7 +295,7 @@ func (c *rawTCPPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 	}
 
 	var dstIP net.IP
-	dstPort := c.remotePort
+	dstPort := int(c.remotePort)
 
 	switch a := addr.(type) {
 	case *net.UDPAddr:
@@ -303,7 +312,7 @@ func (c *rawTCPPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 		}
 	}
 
-	if dstIP == nil || dstPort <= 0 {
+	if dstIP == nil || dstPort <= 0 || dstPort > 65535 {
 		return 0, errors.New("rawpaq: invalid destination address for raw write")
 	}
 
@@ -317,7 +326,7 @@ func (c *rawTCPPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 		c.routerMAC,
 		c.localIP,
 		dstIP,
-		uint16(c.localPort),
+		c.localPort,
 		uint16(dstPort),
 		seq,
 		ack,
@@ -346,7 +355,7 @@ func (c *rawTCPPacketConn) Close() error {
 }
 
 func (c *rawTCPPacketConn) LocalAddr() net.Addr {
-	return &net.UDPAddr{IP: c.localIP, Port: c.localPort}
+	return &net.UDPAddr{IP: c.localIP, Port: int(c.localPort)}
 }
 
 func (c *rawTCPPacketConn) SetDeadline(t time.Time) error {

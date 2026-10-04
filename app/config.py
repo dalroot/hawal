@@ -47,7 +47,7 @@ def load_settings():
             merged = dict(DEFAULT_SETTINGS)
             merged.update(data)
             return merged
-    except:
+    except Exception:
         return dict(DEFAULT_SETTINGS)
 
 def save_settings(new_settings):

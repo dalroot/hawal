@@ -37,7 +37,7 @@ func (h *NoiseHandshaker) Handshake(ctx context.Context, role Role, link carrier
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	_, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	_ = link.SetDeadline(time.Now().Add(timeout))
