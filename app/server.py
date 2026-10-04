@@ -8,6 +8,7 @@ import secrets
 import time
 import re
 import socket
+import sqlite3
 import struct
 import subprocess
 import urllib.parse
