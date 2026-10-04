@@ -86,26 +86,32 @@ def init_db():
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN core_type TEXT NOT NULL DEFAULT 'hawal'")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_in INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_out INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN restart_nonce INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN kcp_mode TEXT DEFAULT 'normal'")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN agent_restart_nonce INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
+            # Column already exists in schema
             pass
         try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN country_code TEXT DEFAULT 'GLOBAL'")
@@ -113,6 +119,7 @@ def init_db():
             cursor.execute("ALTER TABLE nodes ADD COLUMN flag TEXT DEFAULT '🌐'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN city TEXT DEFAULT ''")
         except sqlite3.OperationalError:
+            # Columns already exist in schema
             pass
 
         # Traffic samples time-series table
@@ -140,6 +147,7 @@ def init_db():
             try:
                 cursor.execute(f"ALTER TABLE nodes ADD COLUMN {col} {col_type}")
             except sqlite3.OperationalError:
+                # Column already exists in schema
                 pass
         
         conn.commit()
