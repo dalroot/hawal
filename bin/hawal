@@ -13,7 +13,6 @@ import sqlite3
 import socket
 import ssl
 import subprocess
-import shutil
 from pathlib import Path
 
 # Styling & ANSI Colors
@@ -67,7 +66,7 @@ def format_bytes(bytes_count):
                 return f"{n:.1f} {unit}"
             n /= 1024.0
         return f"{n:.1f} PB"
-    except:
+    except (ValueError, TypeError):
         return "0 B"
 
 def service_status(service_name):
@@ -88,7 +87,7 @@ def get_master_db_connection():
         return None
     try:
         return sqlite3.connect(MASTER_DB)
-    except:
+    except (sqlite3.Error, OSError):
         return None
 
 def master_get_nodes():
@@ -101,7 +100,7 @@ def master_get_nodes():
         rows = cur.execute("SELECT * FROM nodes").fetchall()
         con.close()
         return [dict(zip(cols, r)) for r in rows]
-    except:
+    except (sqlite3.Error, OSError):
         return []
 
 def master_get_tunnels():
@@ -114,7 +113,7 @@ def master_get_tunnels():
         rows = cur.execute("SELECT * FROM tunnels").fetchall()
         con.close()
         return [dict(zip(cols, r)) for r in rows]
-    except:
+    except (sqlite3.Error, OSError):
         return []
 
 # -------------------------------------------------------------
@@ -126,7 +125,7 @@ def agent_get_config():
     try:
         with open(AGENT_JSON, "r", encoding="utf-8") as f:
             return json.load(f)
-    except:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 # -------------------------------------------------------------
@@ -164,7 +163,7 @@ def cmd_tunnels():
                 ports_str = ", ".join(ports_list[:3])
                 if len(ports_list) > 3:
                     ports_str += f" (+{len(ports_list)-3})"
-            except:
+            except (json.JSONDecodeError, TypeError):
                 ports_str = str(raw_ports)
 
             # Node destination
@@ -403,7 +402,7 @@ def cmd_info():
                     data = json.load(f)
                     token = data.get("master_token", "N/A")
                     port = data.get("panel_port", 9090)
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         rc, ip, _ = run_cmd("curl -s -m 3 https://api.ipify.org || hostname -I | awk '{print $1}'")

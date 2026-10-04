@@ -1,6 +1,6 @@
 import urllib.request
+import urllib.error
 import json
-import socket
 
 # In-memory cache for IP lookups
 GEOIP_CACHE = {}
@@ -84,7 +84,7 @@ def resolve_geoip(ip):
                 }
                 GEOIP_CACHE[ip] = res
                 return res
-    except Exception as e:
+    except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError):
         pass
 
     # Fallback heuristic for Iran IPs if offline

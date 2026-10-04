@@ -31,7 +31,7 @@ def _save_sessions_to_disk(sessions):
         valid = {k: v for k, v in sessions.items() if isinstance(v, (int, float)) and v > now}
         with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
             json.dump(valid, f)
-    except Exception:
+    except (OSError, TypeError):
         pass
 
 # Active in-memory session tokens loaded from disk

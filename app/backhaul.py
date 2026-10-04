@@ -1,4 +1,3 @@
-import json
 from app.db import list_tunnels
 
 def validate_tunnel_ports(core_port, server_node_id, current_tunnel_id=None):

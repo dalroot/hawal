@@ -24,7 +24,7 @@ from app.db import (
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config, generate_docker_compose
 from app.gost_engine import generate_gost_server_command, generate_gost_client_command
-from app.ping_tool import run_ping, run_tcp_ping
+from app.ping_tool import run_ping
 from app.auth import (
     is_first_time_setup, setup_admin, authenticate,
     validate_session, invalidate_session
@@ -96,7 +96,7 @@ async def broadcast_ws(data):
         try:
             writer.write(msg)
             await writer.drain()
-        except:
+        except (ConnectionError, OSError):
             dead.append(writer)
     for w in dead:
         CONNECTED_WS_CLIENTS.discard(w)
@@ -199,18 +199,17 @@ def fetch_panel_version_sync(dev=False):
             }
 
 async def get_panel_version_info(dev=False, force=False):
-    global _VERSION_CACHE
     now = time.time()
-    if not force and _VERSION_CACHE["data"] and (now - _VERSION_CACHE["ts"] < 600) and (_VERSION_CACHE["dev"] == dev):
+    if not force and _VERSION_CACHE.get("data") and (now - _VERSION_CACHE.get("ts", 0) < 600) and (_VERSION_CACHE.get("dev") == dev):
         return _VERSION_CACHE["data"]
 
     data = await asyncio.to_thread(fetch_panel_version_sync, dev)
     if "Error" not in data.get("release_name", ""):
-        _VERSION_CACHE = {
+        _VERSION_CACHE.update({
             "data": data,
             "ts": now,
             "dev": dev
-        }
+        })
     return data
 
 def update_panel_sync(dev=False, target_version=None):
@@ -270,8 +269,8 @@ def update_panel_sync(dev=False, target_version=None):
         p = os.path.join(install_dir, exec_file)
         if os.path.exists(p):
             try:
-                os.chmod(p, 0o755)
-            except Exception:
+                os.chmod(p, 0o750)
+            except OSError:
                 pass
 
     subprocess.run(f"rm -rf '{staging_dir}' '{tar_path}'", shell=True)
@@ -305,7 +304,7 @@ class HTTPServer:
                     try:
                         clean_old_traffic_samples(retention_days=35)
                         self.last_cleanup_time = now
-                    except Exception:
+                    except sqlite3.Error:
                         pass
 
                 # Sample local master node network traffic from /proc/net/dev directly
@@ -365,7 +364,7 @@ class HTTPServer:
                                     "last_time": now, "rx": rx_total, "tx": tx_total,
                                     "last_sample_time": now, "accum_rx": 0, "accum_tx": 0
                                 }
-                except Exception:
+                except (OSError, ValueError, KeyError):
                     pass
 
                 # Sample local tunnel accounting counters from iptables HAWAL_ACCT_IN / HAWAL_ACCT_OUT
@@ -381,7 +380,7 @@ class HTTPServer:
                                 try:
                                     p_str = str(rule).split("=")[0].split(":")[-1].strip()
                                     fwd_ports.append(int(p_str))
-                                except Exception:
+                                except (ValueError, IndexError):
                                     pass
                             target_ports = fwd_ports if fwd_ports else [tun.get("core_port")]
                             cur_in = sum(ports_in.get(p, 0) for p in target_ports)
@@ -409,7 +408,7 @@ class HTTPServer:
                                 }
                         if tunnel_updated:
                             await broadcast_ws({"event": "tunnel_updated"})
-                except Exception:
+                except (sqlite3.Error, KeyError):
                     pass
             except Exception:
                 await asyncio.sleep(5)
@@ -427,7 +426,7 @@ class HTTPServer:
                         if m:
                             p = int(m.group(1))
                             bytes_in[p] = bytes_in.get(p, 0) + int(parts[1])
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             pass
 
         try:
@@ -440,7 +439,7 @@ class HTTPServer:
                         if m:
                             p = int(m.group(1))
                             bytes_out[p] = bytes_out.get(p, 0) + int(parts[1])
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             pass
 
         return bytes_in, bytes_out
@@ -505,17 +504,17 @@ class HTTPServer:
         except Exception as e:
             try:
                 self.send_json(writer, {"error": str(e)}, status=500)
-            except:
+            except (ConnectionError, OSError):
                 pass
         finally:
             try:
                 await writer.drain()
-            except:
+            except (ConnectionError, OSError):
                 pass
             try:
                 writer.close()
                 await writer.wait_closed()
-            except:
+            except (ConnectionError, OSError):
                 pass
 
     async def route_request(self, method, path, query, headers, body, writer):
@@ -861,7 +860,7 @@ class HTTPServer:
             if body:
                 try:
                     data = json.loads(body.decode('utf-8'))
-                except Exception:
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     pass
             dev = bool(data.get("dev", False))
             target_version = data.get("version")
@@ -881,7 +880,7 @@ class HTTPServer:
                 await asyncio.sleep(1)
                 try:
                     subprocess.Popen(["systemctl", "restart", "hawal-panel"])
-                except Exception:
+                except (subprocess.SubprocessError, OSError):
                     pass
             asyncio.create_task(schedule_restart())
             return
@@ -1020,7 +1019,7 @@ class HTTPServer:
                 try:
                     p_str = str(rule).split("=")[0].split(":")[-1].strip()
                     fwd_ports.append(int(p_str))
-                except Exception:
+                except (ValueError, IndexError):
                     pass
             target_ports = fwd_ports if fwd_ports else [t.get("core_port")]
             
@@ -1035,7 +1034,7 @@ class HTTPServer:
                         while subprocess.run(["iptables", "-D", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
                             pass
                         subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    except Exception:
+                    except (subprocess.SubprocessError, OSError):
                         pass
             
             self.tunnel_traffic_tracker[tunnel_id] = {
@@ -1055,7 +1054,7 @@ class HTTPServer:
             try:
                 subprocess.run(["iptables", "-Z", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run(["iptables", "-Z", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception:
+            except (subprocess.SubprocessError, OSError):
                 pass
             self.send_json(writer, {"success": True})
             await broadcast_ws({"event": "tunnel_updated"})
@@ -1084,7 +1083,7 @@ class HTTPServer:
                     if 1 <= p <= 65535:
                         test_port = p
                         break
-                except:
+                except (ValueError, TypeError):
                     pass
             
             if not test_port:
@@ -1098,7 +1097,7 @@ class HTTPServer:
                 lsock.connect(("127.0.0.1", test_port))
                 lsock.close()
                 local_ok = True
-            except:
+            except (socket.error, OSError):
                 pass
 
             # 2. Measure actual inter-server network RTT (Iran -> Germany)
@@ -1118,7 +1117,7 @@ class HTTPServer:
                         sock.close()
                         connected = True
                         break
-                    except:
+                    except (socket.error, OSError):
                         continue
                 time.sleep(0.04)
 
@@ -1241,7 +1240,7 @@ class HTTPServer:
             if latency_val is not None:
                 try:
                     latency_val = float(latency_val)
-                except:
+                except (ValueError, TypeError):
                     latency_val = None
 
             if latency_val is None:
@@ -1253,7 +1252,7 @@ class HTTPServer:
                             rtt_us = struct.unpack_from('I', raw, 68)[0]
                             if rtt_us > 0:
                                 latency_val = round(rtt_us / 1000.0, 1)
-                except Exception:
+                except (socket.error, struct.error, OSError):
                     pass
 
             update_node_heartbeat(
@@ -1420,10 +1419,9 @@ class HTTPServer:
                     length = int.from_bytes(raw_len, 'big')
                 mask = await reader.read(4)
                 data = await reader.read(length)
-                # Unmask
-                unmasked = bytes([b ^ mask[i % 4] for i, b in enumerate(data)])
+                _ = bytes([b ^ mask[i % 4] for i, b in enumerate(data)])
                 # Handle client ping or requests if needed
-        except:
+        except (ConnectionError, OSError, asyncio.CancelledError):
             pass
         finally:
             CONNECTED_WS_CLIENTS.discard(writer)
@@ -1564,7 +1562,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         writer.write(resp.encode('utf-8'))
         try:
             await writer.drain()
-        except:
+        except (ConnectionError, OSError):
             pass
 
     async def serve_static_file(self, filepath, writer, method="GET"):
@@ -1588,7 +1586,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
             writer.write(resp_headers.encode('utf-8') + content)
         try:
             await writer.drain()
-        except:
+        except (ConnectionError, OSError):
             pass
 
     def send_redirect(self, writer, location, set_cookie=None):
