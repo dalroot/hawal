@@ -403,6 +403,7 @@ def cmd_info():
                     token = data.get("master_token", "N/A")
                     port = data.get("panel_port", 9090)
             except (json.JSONDecodeError, OSError):
+                # Fall back to default config if file is unreadable or malformed
                 pass
 
         rc, ip, _ = run_cmd("curl -s -m 3 https://api.ipify.org || hostname -I | awk '{print $1}'")

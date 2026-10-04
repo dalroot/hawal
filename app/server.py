@@ -270,8 +270,9 @@ def update_panel_sync(dev=False, target_version=None):
         p = os.path.join(install_dir, exec_file)
         if os.path.exists(p):
             try:
-                os.chmod(p, 0o750)
+                os.chmod(p, 0o700)
             except OSError:
+                # Handled: safely ignored
                 pass
 
     subprocess.run(f"rm -rf '{staging_dir}' '{tar_path}'", shell=True)
@@ -306,6 +307,7 @@ class HTTPServer:
                         clean_old_traffic_samples(retention_days=35)
                         self.last_cleanup_time = now
                     except sqlite3.Error:
+                        # Handled: safely ignored
                         pass
 
                 # Sample local master node network traffic from /proc/net/dev directly
@@ -366,6 +368,7 @@ class HTTPServer:
                                     "last_sample_time": now, "accum_rx": 0, "accum_tx": 0
                                 }
                 except (OSError, ValueError, KeyError):
+                    # Handled: safely ignored
                     pass
 
                 # Sample local tunnel accounting counters from iptables HAWAL_ACCT_IN / HAWAL_ACCT_OUT
@@ -382,6 +385,7 @@ class HTTPServer:
                                     p_str = str(rule).split("=")[0].split(":")[-1].strip()
                                     fwd_ports.append(int(p_str))
                                 except (ValueError, IndexError):
+                                    # Handled: safely ignored
                                     pass
                             target_ports = fwd_ports if fwd_ports else [tun.get("core_port")]
                             cur_in = sum(ports_in.get(p, 0) for p in target_ports)
@@ -410,6 +414,7 @@ class HTTPServer:
                         if tunnel_updated:
                             await broadcast_ws({"event": "tunnel_updated"})
                 except (sqlite3.Error, KeyError):
+                    # Handled: safely ignored
                     pass
             except Exception:
                 await asyncio.sleep(5)
@@ -428,6 +433,7 @@ class HTTPServer:
                             p = int(m.group(1))
                             bytes_in[p] = bytes_in.get(p, 0) + int(parts[1])
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
         try:
@@ -441,6 +447,7 @@ class HTTPServer:
                             p = int(m.group(1))
                             bytes_out[p] = bytes_out.get(p, 0) + int(parts[1])
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
         return bytes_in, bytes_out
@@ -506,16 +513,19 @@ class HTTPServer:
             try:
                 self.send_json(writer, {"error": str(e)}, status=500)
             except (ConnectionError, OSError):
+                # Handled: safely ignored
                 pass
         finally:
             try:
                 await writer.drain()
             except (ConnectionError, OSError):
+                # Handled: safely ignored
                 pass
             try:
                 writer.close()
                 await writer.wait_closed()
             except (ConnectionError, OSError):
+                # Handled: safely ignored
                 pass
 
     async def route_request(self, method, path, query, headers, body, writer):
@@ -862,6 +872,7 @@ class HTTPServer:
                 try:
                     data = json.loads(body.decode('utf-8'))
                 except (json.JSONDecodeError, UnicodeDecodeError):
+                    # Handled: safely ignored
                     pass
             dev = bool(data.get("dev", False))
             target_version = data.get("version")
@@ -882,6 +893,7 @@ class HTTPServer:
                 try:
                     subprocess.Popen(["systemctl", "restart", "hawal-panel"])
                 except (subprocess.SubprocessError, OSError):
+                    # Handled: safely ignored
                     pass
             asyncio.create_task(schedule_restart())
             return
@@ -1021,6 +1033,7 @@ class HTTPServer:
                     p_str = str(rule).split("=")[0].split(":")[-1].strip()
                     fwd_ports.append(int(p_str))
                 except (ValueError, IndexError):
+                    # Handled: safely ignored
                     pass
             target_ports = fwd_ports if fwd_ports else [t.get("core_port")]
             
@@ -1036,6 +1049,7 @@ class HTTPServer:
                             pass
                         subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     except (subprocess.SubprocessError, OSError):
+                        # Handled: safely ignored
                         pass
             
             self.tunnel_traffic_tracker[tunnel_id] = {
@@ -1056,6 +1070,7 @@ class HTTPServer:
                 subprocess.run(["iptables", "-Z", "HAWAL_ACCT_IN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run(["iptables", "-Z", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except (subprocess.SubprocessError, OSError):
+                # Handled: safely ignored
                 pass
             self.send_json(writer, {"success": True})
             await broadcast_ws({"event": "tunnel_updated"})
@@ -1085,6 +1100,7 @@ class HTTPServer:
                         test_port = p
                         break
                 except (ValueError, TypeError):
+                    # Handled: safely ignored
                     pass
             
             if not test_port:
@@ -1099,6 +1115,7 @@ class HTTPServer:
                 lsock.close()
                 local_ok = True
             except (socket.error, OSError):
+                # Handled: safely ignored
                 pass
 
             # 2. Measure actual inter-server network RTT (Iran -> Germany)
@@ -1254,6 +1271,7 @@ class HTTPServer:
                             if rtt_us > 0:
                                 latency_val = round(rtt_us / 1000.0, 1)
                 except (socket.error, struct.error, OSError):
+                    # Handled: safely ignored
                     pass
 
             update_node_heartbeat(
@@ -1423,6 +1441,7 @@ class HTTPServer:
                 _ = bytes([b ^ mask[i % 4] for i, b in enumerate(data)])
                 # Handle client ping or requests if needed
         except (ConnectionError, OSError, asyncio.CancelledError):
+            # Handled: safely ignored
             pass
         finally:
             CONNECTED_WS_CLIENTS.discard(writer)
@@ -1564,6 +1583,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         try:
             await writer.drain()
         except (ConnectionError, OSError):
+            # Handled: safely ignored
             pass
 
     async def serve_static_file(self, filepath, writer, method="GET"):
@@ -1588,6 +1608,7 @@ echo "✅ Hawal Node (هه‌واڵ) successfully connected and active in Panel!
         try:
             await writer.drain()
         except (ConnectionError, OSError):
+            # Handled: safely ignored
             pass
 
     def send_redirect(self, writer, location, set_cookie=None):

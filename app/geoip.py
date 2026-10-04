@@ -85,6 +85,7 @@ def resolve_geoip(ip):
                 GEOIP_CACHE[ip] = res
                 return res
     except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError):
+        # Fall back to heuristic IP mapping if external GeoIP service is unreachable
         pass
 
     # Fallback heuristic for Iran IPs if offline

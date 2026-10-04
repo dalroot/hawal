@@ -32,6 +32,7 @@ def _save_sessions_to_disk(sessions):
         with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
             json.dump(valid, f)
     except (OSError, TypeError):
+        # Non-fatal: ignore session file write errors
         pass
 
 # Active in-memory session tokens loaded from disk

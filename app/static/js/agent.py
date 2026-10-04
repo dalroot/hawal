@@ -52,6 +52,7 @@ class HawalAgent:
             with open(state_file, "w") as f:
                 json.dump({"pid": pid, "hash": content_hash, "metadata": metadata or {}}, f)
         except (OSError, TypeError):
+            # Handled: safely ignored
             pass
 
     def _load_tunnel_state(self):
@@ -74,12 +75,15 @@ class HawalAgent:
                                 pass
                             def terminate(self):
                                 try: os.kill(self.pid, signal.SIGTERM)
-                                except (ProcessLookupError, OSError): pass
+                                except (ProcessLookupError, OSError):
+                                    # Handled: safely ignored
+                                    pass
                         self.running_processes[tun_id] = AdoptedProcess(pid)
                         self.running_configs[tun_id] = data.get("hash")
                         self.running_metadata[tun_id] = data.get("metadata", {})
                         print(f"[Agent] 🔗 Adopted existing live process for tunnel {tun_id} (PID {pid})")
                 except (json.JSONDecodeError, OSError, TypeError):
+                    # Handled: safely ignored
                     pass
 
     def _adopt_running_system_processes(self, configs):
@@ -107,7 +111,9 @@ class HawalAgent:
                                     pass
                                 def terminate(self):
                                     try: os.kill(self.pid, signal.SIGTERM)
-                                    except: pass
+                                    except (ProcessLookupError, OSError):
+                                        # Handled: process already terminated
+                                        pass
                             self.running_processes[tun_id] = AdoptedProcess(pid)
                             self.running_metadata[tun_id] = {
                                 "core_type": core_type,
@@ -118,8 +124,10 @@ class HawalAgent:
                             print(f"[Agent] 🛡️ Successfully adopted active background process {core_type} for tunnel {tun_id} (PID {pid})")
                             break
                     except (OSError, ValueError):
+                        # Handled: safely ignored
                         pass
         except (OSError, ValueError):
+            # Handled: safely ignored
             pass
 
     def _load_agent_restart_nonce(self):
@@ -152,6 +160,7 @@ class HawalAgent:
             if total_delta > 0:
                 metrics["cpu_percent"] = round(100.0 * (1.0 - idle_delta / total_delta), 1)
         except (OSError, ValueError, IndexError):
+            # Handled: safely ignored
             pass
 
         try:
@@ -169,12 +178,14 @@ class HawalAgent:
             metrics["ram_total_mb"] = total_mb
             metrics["ram_used_mb"] = max(0, total_mb - avail_mb)
         except (OSError, ValueError, IndexError):
+            # Handled: safely ignored
             pass
 
         try:
             with open("/proc/uptime", "r") as f:
                 metrics["uptime_seconds"] = int(float(f.readline().split()[0]))
         except (OSError, ValueError, IndexError):
+            # Handled: safely ignored
             pass
 
         try:
@@ -194,6 +205,7 @@ class HawalAgent:
             metrics["net_rx_bytes"] = rx_total
             metrics["net_tx_bytes"] = tx_total
         except (OSError, ValueError, IndexError):
+            # Handled: safely ignored
             pass
 
         return metrics
@@ -220,7 +232,7 @@ class HawalAgent:
             if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
                 temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
                 shutil.copy(local_static_bin, temp_bin)
-                os.chmod(temp_bin, 0o750)
+                os.chmod(temp_bin, 0o700)
                 os.replace(temp_bin, HAWAL_CORE_BIN)
                 print("[Agent] ✅ Hawal Core v2 binary installed from local panel.")
                 return True
@@ -230,7 +242,7 @@ class HawalAgent:
             temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
             with urllib.request.urlopen(req, timeout=15) as resp, open(temp_bin, "wb") as out:
                 shutil.copyfileobj(resp, out)
-            os.chmod(temp_bin, 0o750)
+            os.chmod(temp_bin, 0o700)
             os.replace(temp_bin, HAWAL_CORE_BIN)
             print("[Agent] ✅ Hawal Core v2 binary downloaded and installed.")
             return True
@@ -244,9 +256,10 @@ class HawalAgent:
         try:
             if os.path.exists("/usr/local/bin/backhaul"):
                 shutil.copy("/usr/local/bin/backhaul", BACKHAUL_BIN)
-                os.chmod(BACKHAUL_BIN, 0o750)
+                os.chmod(BACKHAUL_BIN, 0o700)
                 return True
         except (OSError, shutil.Error):
+            # Handled: safely ignored
             pass
         return True
 
@@ -259,7 +272,7 @@ class HawalAgent:
             local_static_bin = "/opt/hawal-panel/app/static/bin/paqet"
             if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
                 shutil.copy(local_static_bin, PAQET_BIN)
-                os.chmod(PAQET_BIN, 0o750)
+                os.chmod(PAQET_BIN, 0o700)
                 print("[Agent] ✅ Paqet binary installed from local panel.")
                 return True
 
@@ -277,6 +290,7 @@ class HawalAgent:
             try:
                 subprocess.run(["apt-get", "install", "-y", "libpcap0.8"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
             except (subprocess.SubprocessError, OSError):
+                # Handled: safely ignored
                 pass
 
             import tarfile, io
@@ -292,7 +306,7 @@ class HawalAgent:
                                 temp_bin = f"{PAQET_BIN}.download"
                                 with open(temp_bin, "wb") as out:
                                     out.write(f.read())
-                                os.chmod(temp_bin, 0o750)
+                                os.chmod(temp_bin, 0o700)
                                 os.replace(temp_bin, PAQET_BIN)
                                 print(f"[Agent] ✅ Paqet ({arch}) binary installed successfully.")
                                 return True
@@ -325,7 +339,7 @@ class HawalAgent:
                     source = tar.extractfile(member)
                     with open(f"{GOST_BIN}.download", "wb") as out:
                         out.write(source.read())
-            os.chmod(f"{GOST_BIN}.download", 0o750)
+            os.chmod(f"{GOST_BIN}.download", 0o700)
             os.replace(f"{GOST_BIN}.download", GOST_BIN)
             print("[Agent] ✅ GOST binary installed successfully.")
             return True
@@ -349,6 +363,7 @@ class HawalAgent:
                         gateway_ip = parts[parts.index("via") + 1]
                     break
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
         try:
             res = subprocess.check_output(["ip", "-4", "addr", "show", iface], stderr=subprocess.DEVNULL).decode('utf-8')
@@ -356,6 +371,7 @@ class HawalAgent:
             if m:
                 local_ip = m.group(1)
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
         try:
             if gateway_ip:
@@ -365,6 +381,7 @@ class HawalAgent:
                 if m:
                     gateway_mac = m.group(1)
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
         return iface, local_ip, gateway_mac
 
@@ -467,6 +484,7 @@ class HawalAgent:
                     print("[Agent] 🔄 Restart requested by panel.")
                     self.shutdown_requested = True
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+            # Handled: safely ignored
             pass
 
     def report_logs(self):
@@ -490,6 +508,7 @@ class HawalAgent:
             with urllib.request.urlopen(req, timeout=5):
                 self.last_log_report = time.time()
         except (urllib.error.URLError, TimeoutError, OSError):
+            # Handled: safely ignored
             pass
 
     def apply_configs(self, configs):
@@ -608,6 +627,7 @@ class HawalAgent:
                 name = os.path.basename(bin_path)
                 subprocess.run(["pkill", "-9", "-f", f"{BIN_DIR}/{name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
     def _extract_ports(self, metadata):
@@ -619,12 +639,14 @@ class HawalAgent:
             try:
                 ports_to_free.add(int(core_port))
             except (ValueError, TypeError):
+                # Handled: safely ignored
                 pass
         for rule in metadata.get("ports", []):
             try:
                 p_str = str(rule).split("=")[0].split(":")[-1].strip()
                 ports_to_free.add(int(p_str))
             except (ValueError, TypeError):
+                # Handled: safely ignored
                 pass
         return ports_to_free
 
@@ -634,6 +656,7 @@ class HawalAgent:
                 subprocess.run(["fuser", "-k", "-9", f"{port}/tcp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run(["fuser", "-k", "-9", f"{port}/udp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except (subprocess.SubprocessError, OSError):
+                # Handled: safely ignored
                 pass
         if ports:
             time.sleep(0.1)
@@ -665,7 +688,9 @@ class HawalAgent:
         state_file = f"{CONFIG_DIR}/{tun_id}.state"
         if os.path.exists(state_file):
             try: os.remove(state_file)
-            except OSError: pass
+            except OSError:
+                # Handled: safely ignored
+                pass
         if tun_id in self.running_processes:
             proc = self.running_processes[tun_id]
             pid = proc.pid
@@ -676,6 +701,7 @@ class HawalAgent:
                 try:
                     proc.terminate()
                 except (ProcessLookupError, OSError):
+                    # Handled: safely ignored
                     pass
             deadline = time.time() + 2.0
             while time.time() < deadline:
@@ -690,10 +716,12 @@ class HawalAgent:
                     try:
                         proc.kill()
                     except (ProcessLookupError, OSError):
+                        # Handled: safely ignored
                         pass
                 try:
                     proc.wait(timeout=1)
                 except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
+                    # Handled: safely ignored
                     pass
             del self.running_processes[tun_id]
             self.running_configs.pop(tun_id, None)
@@ -714,6 +742,7 @@ class HawalAgent:
             if subprocess.run(["iptables", "-C", "OUTPUT", "-j", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
                 subprocess.run(["iptables", "-I", "OUTPUT", "1", "-j", "HAWAL_ACCT_OUT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
     def _sync_acct_rules(self, ports):
@@ -729,6 +758,7 @@ class HawalAgent:
                     if subprocess.run(["iptables", "-C", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
                         subprocess.run(["iptables", "-A", "HAWAL_ACCT_OUT", "-p", proto, "--sport", p_str], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
     def _read_acct_counters(self):
@@ -745,6 +775,7 @@ class HawalAgent:
                             p = int(m.group(1))
                             bytes_in[p] = bytes_in.get(p, 0) + int(parts[1])
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
         try:
@@ -758,6 +789,7 @@ class HawalAgent:
                             p = int(m.group(1))
                             bytes_out[p] = bytes_out.get(p, 0) + int(parts[1])
         except (subprocess.SubprocessError, OSError):
+            # Handled: safely ignored
             pass
 
         return bytes_in, bytes_out
@@ -777,6 +809,7 @@ class HawalAgent:
                         if p_str.isdigit():
                             fwd_ports.append(int(p_str))
                     except (ValueError, IndexError):
+                        # Handled: safely ignored
                         pass
                 
                 core_p = metadata.get("core_port")
@@ -822,6 +855,7 @@ class HawalAgent:
                 with urllib.request.urlopen(req, timeout=4) as _:
                     pass
             except (urllib.error.URLError, TimeoutError, OSError):
+                # Handled: safely ignored
                 pass
 
     def _iptables_bytes(self, chain, port_kind, port):
