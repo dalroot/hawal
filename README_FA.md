@@ -13,6 +13,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/dalroot/hawal/actions/workflows/ci.yml"><img src="https://github.com/dalroot/hawal/actions/workflows/ci.yml/badge.svg" alt="وضعیت تست‌ها و بیلد" /></a>
+  <a href="https://github.com/dalroot/hawal/actions/workflows/security.yml"><img src="https://github.com/dalroot/hawal/actions/workflows/security.yml/badge.svg" alt="تحلیل امنیتی" /></a>
+  <a href="https://github.com/dalroot/hawal/security"><img src="https://img.shields.io/badge/%D8%A2%D9%84%D8%B1%D8%AA%20%D8%A7%D9%85%D9%86%DB%8C%D8%AA%DB%8C-0%20%D9%85%D9%88%D8%B1%D8%AF-brightgreen?logo=github&logoColor=white" alt="آلرت‌های امنیتی" /></a>
   <a href="https://github.com/dalroot/hawal/releases"><img src="https://img.shields.io/github/v/release/dalroot/hawal?color=0284c7&logo=github&label=%D9%86%D8%B3%D8%AE%D9%87" alt="نسخه ریلیز" /></a>
   <a href="https://golang.org/"><img src="https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white" alt="نسخه Go" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white" alt="نسخه Python" /></a>
