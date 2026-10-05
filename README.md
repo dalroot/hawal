@@ -11,6 +11,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/dalroot/hawal/actions/workflows/ci.yml"><img src="https://github.com/dalroot/hawal/actions/workflows/ci.yml/badge.svg" alt="CI Pipeline" /></a>
+  <a href="https://github.com/dalroot/hawal/actions/workflows/security.yml"><img src="https://github.com/dalroot/hawal/actions/workflows/security.yml/badge.svg" alt="Security Analysis" /></a>
+  <a href="https://github.com/dalroot/hawal/security"><img src="https://img.shields.io/badge/Security-0%20Alerts-brightgreen?logo=github&logoColor=white" alt="Security Alerts" /></a>
   <a href="https://github.com/dalroot/hawal/releases"><img src="https://img.shields.io/github/v/release/dalroot/hawal?color=0284c7&logo=github&label=Release" alt="Release" /></a>
   <a href="https://golang.org/"><img src="https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white" alt="Go Version" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white" alt="Python Version" /></a>
