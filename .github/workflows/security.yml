@@ -80,16 +80,18 @@ jobs:
             const issue_number = context.payload.pull_request.number;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const body = `### 🛡️ Hawal Automated Security Audit Report
-
-| Security Gate | Target Scope | Engine | Result |
-| :--- | :--- | :--- | :---: |
-| **Go Core v2** | Memory Safety, Bounds Checking, Carrier Mux | Gosec AST Analyzer | 🟢 **PASSED** |
-| **Python Control Plane** | Exception Handling, File Permissions, Auth Logic | GitHub CodeQL (\`+security-and-quality\`) | 🟢 **PASSED** |
-| **Vulnerability Status** | Code Scanning & CWE Detection | GitHub Advanced Security | 🟢 **0 ALERTS** |
-
-> 🟢 **Security Gate Status: PASSED**
-> All automated security analysis checks and code quality gates have verified successfully. No open vulnerabilities or insecure patterns were detected.`;
+            const body = [
+              '### 🛡️ Hawal Automated Security Audit Report',
+              '',
+              '| Security Gate | Target Scope | Engine | Result |',
+              '| :--- | :--- | :--- | :---: |',
+              '| **Go Core v2** | Memory Safety, Bounds Checking, Carrier Mux | Gosec AST Analyzer | 🟢 **PASSED** |',
+              '| **Python Control Plane** | Exception Handling, File Permissions, Auth Logic | GitHub CodeQL (`+security-and-quality`) | 🟢 **PASSED** |',
+              '| **Vulnerability Status** | Code Scanning & CWE Detection | GitHub Advanced Security | 🟢 **0 ALERTS** |',
+              '',
+              '> 🟢 **Security Gate Status: PASSED**',
+              '> All automated security analysis checks and code quality gates have verified successfully. No open vulnerabilities or insecure patterns were detected.'
+            ].join('\n');
 
             try {
               const comments = await github.rest.issues.listComments({
