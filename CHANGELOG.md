@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.5.2] - 2026-10-09 (Current Stable Milestone)
+## [v2.5.3] - 2026-10-09 (Current Stable Milestone)
+
+> **Milestone Focus:** Immediate Keepalive/Handshake Delivery, Idle Reconnect Elimination, Synchronized DeadLink Timeout, Default MTU Hardening (1150), and GitOps Process Cycling.
+
+### ⚡ Hawal Core v2.5.3: Zero-Buffering & Idle Stability
+- **Zero-Latency Control Delivery:** Set `WriteDelay = false` and `ACKNoDelay = true` across all Rawpaq KCP modes (`ModeNormal`, `ModeFast`, `ModeFast2`, `ModeFast3`). Control frames (Ping/Pong, Stream Open) and initial TLS handshakes are flushed immediately onto the raw socket wire without waiting for outbound buffer aggregation.
+- **Synchronized DeadLink Timeout (75s):** Aligned default `DeadLinkTimeout` in `NewSession` to 75 seconds to match `pingLoop` recovery thresholds, preventing spurious 45-second teardowns during idle periods while maintaining rapid dead-link self-healing.
+- **Evidence-Backed Default MTU (1150):** Updated `DefaultConfig` MTU from 1350 to 1150 per Evidence Ledger RAW-06, ensuring raw TCP frames including KCP and Noise framing stay well below Iranian carrier/TIC fragmentation thresholds.
+- **GitOps Tunnel Recycling:** Enhanced `scripts/update-node.sh` to cycle active core tunnel processes upon binary replacement, allowing nodes to transition instantly to new releases.
+
+---
+
+## [v2.5.2] - 2026-10-09
 
 > **Milestone Focus:** High-Concurrency Mux Queue Expansion, Safe Process Isolation, MTU/Channel Size Persistence & Dynamic Tuning, and GitOps Automated Deployment.
 

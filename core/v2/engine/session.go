@@ -87,7 +87,7 @@ func NewSessionWithOptions(link carrier.Link, codec *record.Codec, isServer bool
 		opts.PingInterval = 15 * time.Second
 	}
 	if opts.DeadLinkTimeout <= 0 {
-		opts.DeadLinkTimeout = 45 * time.Second
+		opts.DeadLinkTimeout = 75 * time.Second
 	}
 
 	s := &Session{

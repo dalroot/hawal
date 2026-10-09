@@ -51,7 +51,7 @@ func DefaultConfig() Config {
 	return Config{
 		Mode:          ModeFast3,
 		LocalAddress:  "0.0.0.0:0",
-		MTU:           1350,
+		MTU:           1150,
 		SendWindow:    256,
 		ReceiveWindow: 1024,
 		DSCP:          46,

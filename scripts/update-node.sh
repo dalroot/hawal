@@ -108,6 +108,10 @@ chmod 700 "${HAWAL_DIR}/bin/hawal-core.new"
 mv -f "${HAWAL_DIR}/bin/hawal-core.new" "${HAWAL_DIR}/bin/hawal-core"
 log_ok "Hawal Core binary installed to ${HAWAL_DIR}/bin/hawal-core"
 
+# Cycle running hawal-core tunnel instances so new binary takes effect immediately
+log_info "Cycling running hawal-core tunnel instances..."
+pkill -f "${HAWAL_DIR}/bin/hawal-core" || true
+
 # 6. Update Panel (if installed on this node)
 if [ -d "${PANEL_DIR}" ]; then
     log_info "Updating Hawal Panel application..."
