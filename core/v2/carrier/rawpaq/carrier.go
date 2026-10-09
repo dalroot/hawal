@@ -91,7 +91,7 @@ func (c *Carrier) Listen(ctx context.Context, bind carrier.Bind, _ carrier.Optio
 }
 
 func (c *Carrier) request(role Role, local, remote string) PacketRequest {
-	return PacketRequest{Role: role, InterfaceName: c.config.InterfaceName, LocalAddress: local, RouterMAC: c.config.RouterMAC, RemoteAddress: remote}
+	return PacketRequest{Role: role, InterfaceName: c.config.InterfaceName, LocalAddress: local, RouterMAC: c.config.RouterMAC, RemoteAddress: remote, SourcePort: c.config.SourcePort}
 }
 
 func (c *Carrier) ensureReady(ctx context.Context, request PacketRequest) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,17 +19,19 @@ var (
 	ErrSessionClosed = errors.New("engine: session closed")
 )
 
+var ErrSessionEvicted = errors.New("engine: session evicted")
+
 // SessionOptions controls keepalive and liveness detection parameters.
 type SessionOptions struct {
 	PingInterval    time.Duration
 	DeadLinkTimeout time.Duration
 }
 
-// DefaultSessionOptions returns the standard 15s ping / 45s dead-link threshold.
+// DefaultSessionOptions returns the standard 15s ping / 75s dead-link threshold.
 func DefaultSessionOptions() SessionOptions {
 	return SessionOptions{
 		PingInterval:    15 * time.Second,
-		DeadLinkTimeout: 45 * time.Second,
+		DeadLinkTimeout: 75 * time.Second,
 	}
 }
 
@@ -49,6 +52,7 @@ type Session struct {
 	closed    chan struct{}
 	closeOnce sync.Once
 	closeErr  error
+	evicted   atomic.Bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -108,11 +112,26 @@ func NewSessionWithOptions(link carrier.Link, codec *record.Codec, isServer bool
 	return s, nil
 }
 
+func (s *Session) Evict() error {
+	s.evicted.Store(true)
+	return s.CloseWithError(ErrSessionEvicted)
+}
+
+func (s *Session) IsEvicted() bool {
+	return s.evicted.Load()
+}
+
 func (s *Session) OpenStream(target string) (*Stream, error) {
 	select {
 	case <-s.closed:
+		if s.evicted.Load() {
+			return nil, ErrSessionEvicted
+		}
 		return nil, ErrSessionClosed
 	default:
+	}
+	if s.evicted.Load() {
+		return nil, ErrSessionEvicted
 	}
 
 	var id uint64
@@ -201,8 +220,14 @@ func (s *Session) removeStream(id uint64) {
 func (s *Session) enqueueControl(frame mux.Frame) error {
 	select {
 	case <-s.closed:
+		if s.evicted.Load() {
+			return ErrSessionEvicted
+		}
 		return ErrSessionClosed
 	default:
+	}
+	if s.evicted.Load() {
+		return ErrSessionEvicted
 	}
 
 	for i := 0; i < 50; i++ {
@@ -211,6 +236,9 @@ func (s *Session) enqueueControl(frame mux.Frame) error {
 			return nil
 		}
 		if errors.Is(err, io.ErrClosedPipe) {
+			if s.evicted.Load() {
+				return ErrSessionEvicted
+			}
 			return ErrSessionClosed
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -342,7 +370,7 @@ func (s *Session) pingLoop() {
 	}
 	timeout := s.opts.DeadLinkTimeout
 	if timeout <= 0 {
-		timeout = 45 * time.Second
+		timeout = 75 * time.Second
 	}
 
 	ticker := time.NewTicker(interval)
@@ -360,8 +388,7 @@ func (s *Session) pingLoop() {
 				Class:    mux.ClassControl,
 				Payload:  payload,
 			}); err != nil {
-				_ = s.CloseWithError(fmt.Errorf("engine: ping enqueue failed: %w", err))
-				return
+				log.Printf("[Hawal-v2] Warning: ping enqueue delayed: %v", err)
 			}
 
 			// 2. Dead-link autodetection: if no response/activity for > timeout, tear down session

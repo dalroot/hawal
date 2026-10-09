@@ -25,6 +25,7 @@ type Config struct {
 	InterfaceName string
 	LocalAddress  string
 	RouterMAC     string
+	SourcePort    int
 	Mode          Mode
 	MTU           int
 	SendWindow    int
@@ -89,6 +90,9 @@ func (c Config) Validate() error {
 	}
 	if c.WriteTimeout <= 0 || c.WriteTimeout > 10*time.Minute {
 		return errors.New("rawpaq: invalid write timeout")
+	}
+	if c.SourcePort < 0 || c.SourcePort > 65535 {
+		return errors.New("rawpaq: source port must be between 0 and 65535")
 	}
 	return nil
 }

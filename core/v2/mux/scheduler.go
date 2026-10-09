@@ -39,7 +39,7 @@ type SchedulerLimits struct {
 }
 
 func DefaultSchedulerLimits() SchedulerLimits {
-	return SchedulerLimits{MaxFrames: 4096, MaxBytes: 16 << 20, MaxPayload: 64 << 10, MaxControlFrames: 128}
+	return SchedulerLimits{MaxFrames: 4096, MaxBytes: 16 << 20, MaxPayload: 64 << 10, MaxControlFrames: 2048}
 }
 
 // Scheduler uses weighted service while enforcing global and control-plane

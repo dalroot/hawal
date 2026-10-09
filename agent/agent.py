@@ -210,9 +210,22 @@ class HawalAgent:
 
         return metrics
 
-    def ensure_hawal_core_binary(self):
+    def ensure_hawal_core_binary(self, force=False):
+        local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
+        if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
+            try:
+                if not os.path.exists(HAWAL_CORE_BIN) or os.path.getsize(local_static_bin) != os.path.getsize(HAWAL_CORE_BIN):
+                    temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
+                    shutil.copy(local_static_bin, temp_bin)
+                    os.chmod(temp_bin, 0o700)
+                    os.replace(temp_bin, HAWAL_CORE_BIN)
+                    print("[Agent] ✅ Hawal Core v2 binary updated from local panel.")
+                    return True
+            except Exception as e:
+                print(f"[Agent] ⚠️ Local panel binary copy failed: {e}")
+
         is_v2 = False
-        if os.path.exists(HAWAL_CORE_BIN) and os.path.isfile(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
+        if not force and os.path.exists(HAWAL_CORE_BIN) and os.path.isfile(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
             try:
                 out = subprocess.check_output([HAWAL_CORE_BIN, "-version"], text=True, timeout=2)
                 if "v2." in out or "Hawal Stealth Core" in out:
@@ -228,7 +241,6 @@ class HawalAgent:
 
         print(f"[Agent] 📥 Installing Hawal Core v2 binary...")
         try:
-            local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
             if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
                 temp_bin = f"{HAWAL_CORE_BIN}.tmp_{os.getpid()}"
                 shutil.copy(local_static_bin, temp_bin)
@@ -620,14 +632,28 @@ class HawalAgent:
                 self.stop_tunnel_process(tun_id)
 
     def cleanup_orphaned_cores(self):
-        """Clean up rogue or orphaned core processes from previous crashed sessions."""
+        """Clean up rogue or orphaned core processes recorded in previous state files without killing adjacent live tunnels."""
         try:
-            core_binaries = (HAWAL_CORE_BIN, BACKHAUL_BIN, PAQET_BIN, GOST_BIN)
-            for bin_path in core_binaries:
-                name = os.path.basename(bin_path)
-                subprocess.run(["pkill", "-9", "-f", f"{BIN_DIR}/{name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (subprocess.SubprocessError, OSError):
-            # Handled: safely ignored
+            if not os.path.exists(CONFIG_DIR):
+                return
+            for fname in os.listdir(CONFIG_DIR):
+                if fname.endswith(".state"):
+                    state_file = os.path.join(CONFIG_DIR, fname)
+                    try:
+                        with open(state_file, "r") as f:
+                            data = json.load(f)
+                            old_pid = data.get("pid")
+                            if old_pid and isinstance(old_pid, int):
+                                try:
+                                    os.kill(old_pid, signal.SIGTERM)
+                                    time.sleep(0.05)
+                                    if os.path.exists(f"/proc/{old_pid}"):
+                                        os.kill(old_pid, signal.SIGKILL)
+                                except (ProcessLookupError, OSError):
+                                    pass
+                    except Exception:
+                        pass
+        except Exception:
             pass
 
     def _extract_ports(self, metadata):
