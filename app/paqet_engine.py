@@ -39,8 +39,11 @@ def generate_paqet_server_config(tunnel):
     core_port = int(tunnel.get("core_port", 8888))
     token = tunnel.get("token", "hawal-secret-key")
     conn = int(tunnel.get("mux_con", 4))
-    raw_chan = int(tunnel.get("channel_size", 1150))
-    mtu = raw_chan if raw_chan <= 1400 else 1150
+    try:
+        raw_chan = int(tunnel.get("channel_size") or 1150)
+        mtu = max(500, min(1400, raw_chan))
+    except (ValueError, TypeError):
+        mtu = 1150
     kcp_mode = str(tunnel.get("kcp_mode") or "normal").strip().lower()
     if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
         kcp_mode = "normal"
@@ -68,8 +71,8 @@ network:
 transport:
   protocol: "kcp"
   conn: {conn}
-  tcpbuf: 65536
-  udpbuf: 65536
+  tcpbuf: 8192
+  udpbuf: 4096
   kcp:
     key: "{token}"
     mode: "{kcp_mode}"
@@ -87,8 +90,11 @@ def generate_paqet_client_config(tunnel, server_ip):
     core_port = int(tunnel.get("core_port", 8888))
     token = tunnel.get("token", "hawal-secret-key")
     conn = int(tunnel.get("mux_con", 4))
-    raw_chan = int(tunnel.get("channel_size", 1150))
-    mtu = raw_chan if raw_chan <= 1400 else 1150
+    try:
+        raw_chan = int(tunnel.get("channel_size") or 1150)
+        mtu = max(500, min(1400, raw_chan))
+    except (ValueError, TypeError):
+        mtu = 1150
     kcp_mode = str(tunnel.get("kcp_mode") or "normal").strip().lower()
     if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
         kcp_mode = "normal"
@@ -133,8 +139,8 @@ server:
 transport:
   protocol: "kcp"
   conn: {conn}
-  tcpbuf: 65536
-  udpbuf: 65536
+  tcpbuf: 8192
+  udpbuf: 4096
   kcp:
     key: "{token}"
     mode: "{kcp_mode}"
