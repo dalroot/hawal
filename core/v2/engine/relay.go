@@ -104,6 +104,7 @@ func (fl *ForwardListener) serve(getSession func() *Session) {
 			defer c.Close()
 			sess := getSession()
 			if sess == nil {
+				log.Printf("[Hawal-v2] ⚠️ Dropping client connection on %s: session is not ready", fl.rule.ListenPort)
 				return
 			}
 
@@ -138,13 +139,15 @@ func ServeEgress(ctx context.Context, session *Session, portMap map[string]strin
 				target = "127.0.0.1:" + target
 			}
 
+			log.Printf("[Hawal-v2] 🔌 Serving egress stream #%d -> dialing %s", s.ID(), target)
 			outConn, err := net.DialTimeout("tcp", target, 10*time.Second)
 			if err != nil {
-				log.Printf("[Hawal-v2] Egress dial to %s failed: %v", target, err)
+				log.Printf("[Hawal-v2] ❌ Egress dial to %s failed: %v", target, err)
 				_ = s.Reset()
 				return
 			}
 			defer outConn.Close()
+			log.Printf("[Hawal-v2] 🟢 Egress connected to %s for stream #%d", target, s.ID())
 
 			if tcpConn, ok := outConn.(*net.TCPConn); ok && noDelay {
 				_ = tcpConn.SetNoDelay(true)

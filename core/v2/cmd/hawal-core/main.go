@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	Version = "2.5.3"
+	Version = "2.5.4"
 )
 
 type ConfigFile struct {
