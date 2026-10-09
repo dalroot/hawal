@@ -124,6 +124,9 @@ func (b *LinuxRawBackend) Open(ctx context.Context, req PacketRequest) (net.Pack
 			}
 		}
 	}
+	if localPort == 0 && req.SourcePort > 0 && req.SourcePort <= 65535 {
+		localPort = uint16(req.SourcePort)
+	}
 	if localPort == 0 {
 		ephem := pickEphemeralPort()
 		if ephem > 0 && ephem <= 65535 {

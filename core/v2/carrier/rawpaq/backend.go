@@ -21,6 +21,7 @@ type PacketRequest struct {
 	LocalAddress  string
 	RouterMAC     string
 	RemoteAddress string
+	SourcePort    int
 }
 
 type CheckCode string

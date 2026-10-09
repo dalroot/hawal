@@ -271,9 +271,22 @@ def get_tunnel(tunnel_id):
             d["ports"] = []
         return d
 
-def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', nodelay=1, snappy=1, mux_con=8, keepalive=75, channel_size=2048, core_type='hawal', kcp_mode='normal'):
+def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', nodelay=1, snappy=1, mux_con=8, keepalive=75, channel_size=None, core_type='hawal', kcp_mode='normal'):
     now = time.time()
     ports_json = json.dumps(ports)
+    if channel_size is None:
+        if core_type == "paqet":
+            channel_size = 1150
+        elif core_type == "hawal":
+            channel_size = 1350
+        else:
+            channel_size = 2048
+    else:
+        try:
+            channel_size = max(500, min(1500, int(channel_size)))
+        except (ValueError, TypeError):
+            channel_size = 1150 if core_type == "paqet" else (1350 if core_type == "hawal" else 2048)
+
     with get_db() as conn:
         conn.execute("""
         INSERT INTO tunnels (id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, kcp_mode, created_at)
@@ -297,30 +310,30 @@ def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, tran
         """, (tunnel_id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, kcp_mode, now))
         conn.commit()
 
-def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal', kcp_mode=None):
+def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal', kcp_mode=None, channel_size=None):
     ports_json = json.dumps(ports)
     with get_db() as conn:
-        if kcp_mode:
-            conn.execute("""
-            UPDATE tunnels SET
-                name = ?,
-                core_port = ?,
-                transport = ?,
-                ports_json = ?,
-                core_type = ?,
-                kcp_mode = ?
-            WHERE id = ?
-            """, (name, int(core_port), transport, ports_json, core_type, kcp_mode, tunnel_id))
-        else:
-            conn.execute("""
-            UPDATE tunnels SET
-                name = ?,
-                core_port = ?,
-                transport = ?,
-                ports_json = ?,
-                core_type = ?
-            WHERE id = ?
-            """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
+        set_clauses = [
+            "name = ?",
+            "core_port = ?",
+            "transport = ?",
+            "ports_json = ?",
+            "core_type = ?"
+        ]
+        params = [name, int(core_port), transport, ports_json, core_type]
+        if kcp_mode is not None:
+            set_clauses.append("kcp_mode = ?")
+            params.append(kcp_mode)
+        if channel_size is not None:
+            try:
+                clamped_size = max(500, min(1500, int(channel_size)))
+                set_clauses.append("channel_size = ?")
+                params.append(clamped_size)
+            except (ValueError, TypeError):
+                pass
+        params.append(tunnel_id)
+        sql = f"UPDATE tunnels SET {', '.join(set_clauses)} WHERE id = ?"
+        conn.execute(sql, tuple(params))
         conn.commit()
 
 def request_tunnel_restart(tunnel_id):

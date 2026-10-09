@@ -2634,6 +2634,13 @@
         if (kcpSel) kcpSel.value = tunObj.kcp_mode;
       }
 
+      if (tunObj && tunObj.channel_size) {
+        const paqetMtu = document.getElementById('cfgPaqetMtu');
+        if (paqetMtu) paqetMtu.value = tunObj.channel_size;
+        const hawalMtu = document.getElementById('cfgHawalMtu');
+        if (hawalMtu) hawalMtu.value = tunObj.channel_size;
+      }
+
       if (addTunnelForm) addTunnelForm.setAttribute('data-editing-id', tunnelId);
       if (addTunnelModal) addTunnelModal.style.display = 'flex';
     }
@@ -4969,6 +4976,15 @@
         const client_node_id = document.getElementById('selectClientNode')?.value;
         const kcp_mode = document.getElementById('cfgPaqetKcp')?.value || 'normal';
 
+        let channel_size = null;
+        if (engine === 'paqet') {
+          const rawMtu = parseInt(document.getElementById('cfgPaqetMtu')?.value, 10);
+          if (!isNaN(rawMtu)) channel_size = rawMtu;
+        } else if (engine === 'hawal') {
+          const rawMtu = parseInt(document.getElementById('cfgHawalMtu')?.value, 10);
+          if (!isNaN(rawMtu)) channel_size = rawMtu;
+        }
+
         const portChipsContainer = document.getElementById('portChipsContainer');
         const portChips = portChipsContainer ? Array.from(portChipsContainer.querySelectorAll('.port-chip')).map(c => c.getAttribute('data-port')) : [];
         const ports = portChips.length ? portChips.map(p => `${p}=127.0.0.1:${p}`) : [`${port}=127.0.0.1:${port}`];
@@ -4981,7 +4997,8 @@
               core_type: engine,
               transport: carrier,
               ports: ports,
-              kcp_mode: kcp_mode
+              kcp_mode: kcp_mode,
+              channel_size: channel_size
             });
             showToast(`Tunnel "${remark}" updated successfully.`);
           } else {
@@ -4993,7 +5010,8 @@
               server_node_id: server_node_id,
               client_node_id: client_node_id,
               ports: ports,
-              kcp_mode: kcp_mode
+              kcp_mode: kcp_mode,
+              channel_size: channel_size
             });
             showToast(`Tunnel "${remark}" created successfully.`);
           }

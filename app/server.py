@@ -821,8 +821,9 @@ class HTTPServer:
             kcp_mode = str(data.get("kcp_mode", "normal")).strip().lower()
             if kcp_mode not in ("normal", "fast", "fast2", "fast3", "manual"):
                 kcp_mode = "normal"
-            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', core_type=core_type, kcp_mode=kcp_mode)
-            self.send_json(writer, {"tunnel_id": tunnel_id, "token": token, "status": "running", "core_type": core_type, "kcp_mode": kcp_mode})
+            channel_size = data.get("channel_size")
+            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', core_type=core_type, kcp_mode=kcp_mode, channel_size=channel_size)
+            self.send_json(writer, {"tunnel_id": tunnel_id, "token": token, "status": "running", "core_type": core_type, "kcp_mode": kcp_mode, "channel_size": channel_size})
             await broadcast_ws({"event": "tunnel_updated"})
             return
 
@@ -953,7 +954,8 @@ class HTTPServer:
                 self.send_json(writer, {"error": err}, status=400)
                 return
 
-            update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type, kcp_mode=kcp_mode)
+            channel_size = data.get("channel_size")
+            update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type, kcp_mode=kcp_mode, channel_size=channel_size)
             request_tunnel_restart(tunnel_id)
             self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
             await broadcast_ws({"event": "tunnel_updated"})
