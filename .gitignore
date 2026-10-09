@@ -18,4 +18,5 @@ venv/
 
 .skills/
 HANDOFF.md
-scripts/
+scripts/*
+!scripts/update-node.sh

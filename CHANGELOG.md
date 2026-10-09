@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.5.1] - 2026-10-03 (Current Stable Milestone)
+## [v2.5.2] - 2026-10-09 (Current Stable Milestone)
+
+> **Milestone Focus:** High-Concurrency Mux Queue Expansion, Safe Process Isolation, MTU/Channel Size Persistence & Dynamic Tuning, and GitOps Automated Deployment.
+
+### ⚡ Hawal Core v2.5.2: Concurrency & Transport Resilience
+- **Mux Control Queue Hardening:** Increased `MaxControlFrames` in scheduler from 128 to 2048 to prevent control frame buffer exhaustion and session dropouts under sudden handshake surges (Fixes #6).
+- **Atomic Session Eviction:** Implemented clean session eviction (`Evict()`, `IsEvicted()`) and increased `DeadLinkTimeout` to 75 seconds, eliminating false-positive link teardowns during transit jitter (Fixes #6).
+- **Deterministic Rawpaq Binding:** Added `SourcePort` configuration to `rawpaq` carrier for symmetric iptables conntrack bypass (`NOTRACK` and `DROP RST`).
+
+### 🛡️ Agent & Panel Hardening
+- **Granular Process Tracking:** Replaced blind `pkill -9` with per-tunnel state-file PID tracking (`SIGTERM`), preventing agent restarts from killing adjacent production tunnels (Fixes #6).
+- **MTU / Channel Size Persistence:** Full-stack persistence for `channel_size` across Web UI, backend API, and SQLite database; enforced safe 1150 default MTU to eliminate Iranian ISP/DPI KCP packet fragmentation (Fixes #7).
+- **GitOps Node Deployment:** Added standardized `scripts/update-node.sh` with cryptographic SHA256 checksum verification and automated GitHub Actions release packaging.
+
+---
+
+## [v2.5.1] - 2026-10-03
 
 > **Milestone Focus:** Hawal Core v2.5.1 Resilient Rawpaq Carrier, Morning Silent-Drop & Freeze Fix, Dead-Link Auto-Recovery, Socket Write Deadlines, and In-Depth DPI / Raw-TCP Research Documentation.
 
