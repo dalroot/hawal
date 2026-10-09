@@ -807,7 +807,7 @@ class HawalAgent:
         try:
             res_out = subprocess.run(["iptables", "-nxvL", "HAWAL_ACCT_OUT"], capture_output=True, text=True, timeout=2)
             if res_out.returncode == 0:
-                for line in res_out.splitlines():
+                for line in res_out.stdout.splitlines():
                     parts = line.split()
                     if len(parts) >= 2 and parts[1].isdigit():
                         m = re.search(r'spt:(\d+)', line)
