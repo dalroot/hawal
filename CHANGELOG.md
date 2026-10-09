@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.5.3] - 2026-10-09 (Current Stable Milestone)
+## [v2.5.4] - 2026-10-09 (Current Stable Milestone)
+
+> **Milestone Focus:** Deep Stream Diagnostics, Forwarding Lifecycle Telemetry, Pump Error Tracing, and AcceptStream Error Propagation.
+
+### ⚡ Hawal Core v2.5.4: Diagnostic Tracing
+- **Egress & Ingress Stream Telemetry:** Added real-time structured logging for `OpenStream`, `AcceptStream`, `TypeOpen`, and local dial attempts in `relay.go` and `session.go`.
+- **True Error Propagation in AcceptStream:** Aligned `AcceptStream` on closed sessions to return underlying `s.closeErr` instead of masked `ErrSessionClosed`, surfacing exact underlying connection failure causes.
+- **Keepalive & Pump Monitoring:** Added logging on deadlink detection, outbound write failures, and inbound read errors to expose link drops immediately in logs.
+
+---
+
+## [v2.5.3] - 2026-10-09
 
 > **Milestone Focus:** Immediate Keepalive/Handshake Delivery, Idle Reconnect Elimination, Synchronized DeadLink Timeout, Default MTU Hardening (1150), and GitOps Process Cycling.
 

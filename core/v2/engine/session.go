@@ -169,17 +169,24 @@ func (s *Session) OpenStream(target string) (*Stream, error) {
 		return nil, fmt.Errorf("engine: send open frame: %w", err)
 	}
 
+	log.Printf("[Hawal-v2] ➡️ OpenStream #%d for %s", id, target)
 	return st, nil
 }
 
 func (s *Session) AcceptStream(ctx context.Context) (*Stream, error) {
 	select {
 	case <-s.closed:
+		if s.closeErr != nil {
+			return nil, s.closeErr
+		}
 		return nil, ErrSessionClosed
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case st, ok := <-s.incoming:
 		if !ok {
+			if s.closeErr != nil {
+				return nil, s.closeErr
+			}
 			return nil, ErrSessionClosed
 		}
 		return st, nil
@@ -289,6 +296,7 @@ func (s *Session) outboundPump() {
 
 		_ = s.link.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		if err := s.codec.Write(s.link, rec); err != nil {
+			log.Printf("[Hawal-v2] ❌ Outbound write failed for record type %d: %v", rec.Type, err)
 			_ = s.CloseWithError(fmt.Errorf("engine: write record: %w", err))
 			return
 		}
@@ -299,6 +307,7 @@ func (s *Session) inboundPump() {
 	for {
 		rec, err := s.codec.Read(s.link)
 		if err != nil {
+			log.Printf("[Hawal-v2] ❌ Inbound read failed: %v", err)
 			_ = s.CloseWithError(fmt.Errorf("engine: read record: %w", err))
 			return
 		}
@@ -308,6 +317,7 @@ func (s *Session) inboundPump() {
 		switch rec.Type {
 		case record.TypeOpen:
 			target := string(rec.Payload)
+			log.Printf("[Hawal-v2] ⬅️ Received TypeOpen stream #%d target %s", rec.StreamID, target)
 			st := newStream(rec.StreamID, target, s)
 
 			s.streamsMu.Lock()
@@ -350,6 +360,7 @@ func (s *Session) inboundPump() {
 
 		case record.TypePing:
 			// Peer is probing liveness; respond immediately with Pong
+			log.Printf("[Hawal-v2] 💓 Received Ping from peer, responding Pong")
 			pongPayload := []byte{byte(record.TypePong)}
 			_ = s.enqueueControl(mux.Frame{
 				StreamID: 0,
@@ -358,7 +369,7 @@ func (s *Session) inboundPump() {
 			})
 
 		case record.TypePong:
-			// Pong received; peer confirmed liveness (lastInboundActivity was updated)
+			log.Printf("[Hawal-v2] 💓 Received Pong from peer (RTT check OK)")
 		}
 	}
 }
@@ -394,6 +405,7 @@ func (s *Session) pingLoop() {
 			// 2. Dead-link autodetection: if no response/activity for > timeout, tear down session
 			last := time.Unix(0, atomic.LoadInt64(&s.lastInboundActivity))
 			if time.Since(last) > timeout {
+				log.Printf("[Hawal-v2] 💀 Dead link detected: no inbound activity for %v (threshold: %v)", time.Since(last).Round(time.Second), timeout)
 				_ = s.CloseWithError(fmt.Errorf("engine: dead link detected (no activity for %v)", time.Since(last).Round(time.Second)))
 				return
 			}
