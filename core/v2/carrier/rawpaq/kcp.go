@@ -8,7 +8,7 @@ import (
 
 func applyKCP(session *kcp.UDPSession, config Config) error {
 	noDelay, interval, resend, noCongestion := 0, 40, 2, 1
-	writeDelay, ackNoDelay := true, false
+	writeDelay, ackNoDelay := false, true
 	switch config.Mode {
 	case ModeNormal:
 		noDelay, interval, resend, noCongestion = 0, 40, 2, 1
@@ -16,10 +16,8 @@ func applyKCP(session *kcp.UDPSession, config Config) error {
 		noDelay, interval, resend, noCongestion = 0, 30, 2, 1
 	case ModeFast2:
 		noDelay, interval, resend, noCongestion = 1, 20, 2, 1
-		writeDelay, ackNoDelay = false, true
 	case ModeFast3:
 		noDelay, interval, resend, noCongestion = 1, 10, 2, 1
-		writeDelay, ackNoDelay = false, true
 	case ModeManual:
 		noDelay = config.Manual.NoDelay
 		interval = config.Manual.IntervalMS
